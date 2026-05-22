@@ -55,7 +55,7 @@ const todayKey = toDateKey(new Date());
 const palette = ["#79b8b6", "#c49b70", "#8fac99", "#d28a96", "#8795b2", "#aeb58d"];
 const habitWeekdayOrder = [1, 2, 3, 4, 5, 6, 0];
 const tabQuotes: Record<TabId, string> = {
-  today: "프로와 아마추어의 차이는 하기 싫은 날에도 하는 것이다.",
+  today: "프로와 아마추어의 차이는 하기 싫은 날에도 하는데에 있다.",
   habits: "반복되는 행동이 정체성을 만든다.",
   calendar: "완벽한 하루보다 다시 이어가는 하루가 오래 남는다.",
 };
@@ -74,7 +74,6 @@ export default function App() {
   const [monthDate, setMonthDate] = useState(new Date());
   const [filterCategory, setFilterCategory] = useState("전체");
   const [dragTarget, setDragTarget] = useState<DragTarget | null>(null);
-  const [saveStatus, setSaveStatus] = useState("저장됨");
 
   useEffect(() => {
     let mounted = true;
@@ -129,13 +128,11 @@ export default function App() {
         if (!cancelled) {
           setHabitState(remote ?? local ?? createInitialHabitState());
           setStateReady(true);
-          setSaveStatus("저장됨");
         }
       } catch {
         if (!cancelled) {
           setHabitState(loadLocalHabitState(currentUser.id) ?? createInitialHabitState());
           setStateReady(true);
-          setSaveStatus("로컬 저장");
         }
       }
     }
@@ -150,21 +147,15 @@ export default function App() {
     if (!user || !stateReady) return;
 
     const currentUser = user;
-    setSaveStatus("저장 중");
     saveLocalHabitState(currentUser.id, habitState);
 
     const timer = window.setTimeout(async () => {
       if (currentUser.isRemote) {
         try {
           await saveRemoteHabitState(currentUser.id, habitState);
-          setSaveStatus("저장됨");
-        } catch {
-          setSaveStatus("로컬 저장");
-        }
+        } catch {}
         return;
       }
-
-      setSaveStatus("저장됨");
     }, 450);
 
     return () => window.clearTimeout(timer);
@@ -322,7 +313,6 @@ export default function App() {
 
         <div className="topbar-actions">
           <AppDateControl dateKey={checkDate} onDateChange={changeGlobalDate} />
-          <span className="save-state">{saveStatus}</span>
           <span className="user-pill">{user.name}</span>
           <button className="icon-button" type="button" title="로그아웃" aria-label="로그아웃" onClick={handleLogout}>
             <LogOut size={18} />
@@ -397,7 +387,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: AppUser) => void }) {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
-  const remoteEnabled = isSupabaseConfigured;
+  const [emailFormOpen, setEmailFormOpen] = useState(false);
 
   async function handleEmailSubmit(event: FormEvent) {
     event.preventDefault();
@@ -456,48 +446,81 @@ function LoginScreen({ onLogin }: { onLogin: (user: AppUser) => void }) {
             <img className="brand-whale" src={whaleIcon} alt="" />
           </div>
           <h1>습관 고래</h1>
-          <span>{remoteEnabled ? "온라인 저장" : "로컬 데모"}</span>
         </div>
 
         <div className="provider-row">
-          <button type="button" className="provider-button" onClick={handleGoogleLogin}>
-            Google
+          <button type="button" className="provider-button google-button" onClick={handleGoogleLogin}>
+            <GoogleLogo />
+            <span>Google로 계속하기</span>
+          </button>
+          <button
+            type="button"
+            className={emailFormOpen && mode === "login" ? "provider-button email-button active" : "provider-button email-button"}
+            onClick={() => {
+              setEmailFormOpen(true);
+              setMode("login");
+              setMessage("");
+            }}
+          >
+            메일로 로그인
           </button>
         </div>
 
-        <form className="auth-form" onSubmit={handleEmailSubmit}>
-          {mode === "signup" && (
-            <label>
-              이름
-              <input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" />
-            </label>
-          )}
-          <label>
-            메일
-            <input value={email} type="email" required onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
-          </label>
-          <label>
-            비밀번호
-            <input
-              value={password}
-              type="password"
-              required
-              minLength={6}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-            />
-          </label>
-          {message && <p className="form-message">{message}</p>}
-          <button type="submit" className="primary-button">
-            {mode === "login" ? "로그인" : "회원가입"}
-          </button>
-        </form>
+        {emailFormOpen && (
+          <>
+            <form className="auth-form" onSubmit={handleEmailSubmit}>
+              {mode === "signup" && (
+                <label>
+                  이름
+                  <input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" />
+                </label>
+              )}
+              <label>
+                메일
+                <input value={email} type="email" required onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
+              </label>
+              <label>
+                비밀번호
+                <input
+                  value={password}
+                  type="password"
+                  required
+                  minLength={6}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                />
+              </label>
+              {message && <p className="form-message">{message}</p>}
+              <button type="submit" className="primary-button">
+                {mode === "login" ? "로그인" : "회원가입"}
+              </button>
+            </form>
 
-        <button className="link-button" type="button" onClick={() => setMode(mode === "login" ? "signup" : "login")}>
-          {mode === "login" ? "메일로 회원가입" : "로그인으로 돌아가기"}
-        </button>
+            <button
+              className="link-button"
+              type="button"
+              onClick={() => {
+                setMode(mode === "login" ? "signup" : "login");
+                setMessage("");
+              }}
+            >
+              {mode === "login" ? "메일로 회원가입" : "로그인으로 돌아가기"}
+            </button>
+          </>
+        )}
       </section>
     </div>
+  );
+}
+
+function GoogleLogo() {
+  return (
+    <svg className="google-logo" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path fill="#4285f4" d="M21.8 12.23c0-.78-.07-1.53-.2-2.23H12v4.26h5.5a4.7 4.7 0 0 1-2.04 3.08v2.55h3.3c1.92-1.77 3.04-4.37 3.04-7.66Z" />
+      <path fill="#34a853" d="M12 22c2.73 0 5.02-.9 6.7-2.45l-3.3-2.55c-.9.6-2.07.97-3.4.97-2.62 0-4.85-1.77-5.64-4.15H2.95v2.63A10.1 10.1 0 0 0 12 22Z" />
+      <path fill="#fbbc05" d="M6.36 13.82A6.05 6.05 0 0 1 6.04 12c0-.63.11-1.24.32-1.82V7.55H2.95A10 10 0 0 0 1.9 12c0 1.6.38 3.12 1.05 4.45l3.41-2.63Z" />
+      <path fill="#ea4335" d="M12 6.03c1.48 0 2.82.51 3.87 1.52l2.9-2.9C17.02 3.02 14.73 2 12 2a10.1 10.1 0 0 0-9.05 5.55l3.41 2.63C7.15 7.8 9.38 6.03 12 6.03Z" />
+    </svg>
   );
 }
 
@@ -511,8 +534,31 @@ function TabButton({ active, icon, label, onClick }: { active: boolean; icon: Re
 }
 
 function AppDateControl({ dateKey, onDateChange }: { dateKey: string; onDateChange: (dateKey: string) => void }) {
-  const dateInputRef = useRef<HTMLInputElement>(null);
+  const controlRef = useRef<HTMLDivElement>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [pickerMonth, setPickerMonth] = useState(() => fromDateKey(dateKey));
   const isViewingToday = dateKey === todayKey;
+  const pickerDays = useMemo(() => buildMonthDays(pickerMonth), [pickerMonth]);
+
+  useEffect(() => {
+    setPickerMonth(fromDateKey(dateKey));
+  }, [dateKey]);
+
+  useEffect(() => {
+    if (!calendarOpen) return;
+
+    function closeOnOutsideClick(event: MouseEvent | TouchEvent) {
+      if (controlRef.current?.contains(event.target as Node)) return;
+      setCalendarOpen(false);
+    }
+
+    window.addEventListener("mousedown", closeOnOutsideClick);
+    window.addEventListener("touchstart", closeOnOutsideClick);
+    return () => {
+      window.removeEventListener("mousedown", closeOnOutsideClick);
+      window.removeEventListener("touchstart", closeOnOutsideClick);
+    };
+  }, [calendarOpen]);
 
   function moveDate(amount: number) {
     const date = fromDateKey(dateKey);
@@ -520,36 +566,63 @@ function AppDateControl({ dateKey, onDateChange }: { dateKey: string; onDateChan
     onDateChange(toDateKey(date));
   }
 
-  function openDatePicker() {
-    if (dateInputRef.current?.showPicker) {
-      dateInputRef.current.showPicker();
-      return;
-    }
-    dateInputRef.current?.click();
+  function selectDate(nextDateKey: string) {
+    onDateChange(nextDateKey);
+    setCalendarOpen(false);
   }
 
   return (
-    <div className="global-date-control">
+    <div className="global-date-control" ref={controlRef}>
       <div className="date-stepper" aria-label="전체 날짜 이동">
         <button className="icon-button" type="button" title="이전 날짜" aria-label="이전 날짜" onClick={() => moveDate(-1)}>
           <ChevronLeft size={17} />
         </button>
-        <button className="date-display-button" type="button" onClick={openDatePicker}>
+        <button className="date-display-button" type="button" onClick={() => setCalendarOpen((open) => !open)} aria-expanded={calendarOpen}>
           <span>{formatKoreanDate(dateKey)}</span>
           {isViewingToday && <i>오늘</i>}
         </button>
-        <input
-          ref={dateInputRef}
-          className="date-native-picker"
-          type="date"
-          value={dateKey}
-          onChange={(event) => onDateChange(event.target.value)}
-          aria-label="날짜 선택"
-        />
         <button className="icon-button" type="button" title="다음 날짜" aria-label="다음 날짜" onClick={() => moveDate(1)}>
           <ChevronRight size={17} />
         </button>
       </div>
+
+      {calendarOpen && (
+        <div className="date-popover" role="dialog" aria-label="날짜 선택">
+          <div className="date-popover-head">
+            <button className="icon-button" type="button" title="이전 달" aria-label="이전 달" onClick={() => setPickerMonth((current) => addMonths(current, -1))}>
+              <ChevronLeft size={16} />
+            </button>
+            <strong>{getMonthTitle(pickerMonth)}</strong>
+            <button className="icon-button" type="button" title="다음 달" aria-label="다음 달" onClick={() => setPickerMonth((current) => addMonths(current, 1))}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <div className="date-popover-weekdays">
+            {allWeekdays.map((day) => (
+              <span key={day}>{getWeekdayLabel(day)}</span>
+            ))}
+          </div>
+          <div className="date-popover-grid">
+            {pickerDays.map((day) => (
+              <button
+                key={day.key}
+                className={[
+                  "date-popover-day",
+                  day.isCurrentMonth ? "" : "muted",
+                  day.key === dateKey ? "selected" : "",
+                  day.key === todayKey ? "today" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                type="button"
+                onClick={() => selectDate(day.key)}
+              >
+                {day.date.getDate()}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -852,8 +925,9 @@ function HabitListView({
         <div className="form-field tone-field">
           <ToneSelector value={tone} onChange={setTone} />
         </div>
-        <div className="weekday-line">
-          <WeekdayPicker value={weekdays} onChange={setWeekdays} />
+        <div className="repeat-row">
+          <span className="repeat-label">반복</span>
+          <WeekdayPicker value={weekdays} onChange={setWeekdays} compact />
           <button
             className={isEveryDay(weekdays) ? "everyday-button active" : "everyday-button"}
             type="button"

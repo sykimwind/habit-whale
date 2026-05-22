@@ -135,7 +135,6 @@ h2 {
 .login-brand span,
 .summary-title p,
 footer,
-.save-state,
 .day-percent {
   color: #65736b;
   font-size: 13px;
@@ -162,7 +161,6 @@ footer,
 }
 
 .user-pill,
-.save-state,
 .chip,
 .streak-pill {
   min-height: 30px;
@@ -180,10 +178,6 @@ footer,
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 14px;
-}
-
-.save-state {
-  padding: 0 10px;
 }
 
 .tabs {
@@ -280,12 +274,71 @@ main {
   font-style: normal;
 }
 
-.date-native-picker {
+.date-popover {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: 292px;
+  padding: 10px;
+  border: 1px solid rgba(42, 68, 66, 0.14);
+  border-radius: 8px;
+  background: #fffefa;
+  box-shadow: 0 18px 38px rgba(33, 44, 40, 0.14);
+}
+
+.date-popover-head {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.date-popover-head strong {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.date-popover-weekdays,
+.date-popover-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.date-popover-weekdays {
+  margin-bottom: 5px;
+  color: #65736b;
+  font-size: 11px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.date-popover-day {
+  aspect-ratio: 1;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #263532;
+  font-weight: 850;
+}
+
+.date-popover-day.muted {
+  color: #a7b0aa;
+}
+
+.date-popover-day.today {
+  border-color: rgba(95, 148, 150, 0.28);
+  background: #edf7f4;
+}
+
+.date-popover-day.selected {
+  border-color: var(--brand-strong);
+  background: var(--brand-strong);
+  color: #fff;
 }
 
 .progress-compact {
@@ -625,7 +678,8 @@ label {
   gap: 6px;
   padding: 3px;
   border-radius: 8px;
-  background: #e9eff5;
+  border: 1px solid rgba(42, 68, 66, 0.08);
+  background: #f4f0e8;
 }
 
 .tone-selector.compact {
@@ -640,25 +694,25 @@ label {
   padding: 0 8px;
   border-color: transparent;
   background: transparent;
-  color: #52615a;
+  color: #5a625c;
 }
 
 .tone-option.good.active {
-  border-color: #78aaa1;
-  background: #e5f3ef;
-  color: #4f817a;
+  border-color: rgba(95, 148, 150, 0.32);
+  background: #e6f2ee;
+  color: #356f68;
 }
 
 .tone-option.neutral.active {
-  border-color: #586276;
-  background: #e8edf5;
-  color: #3c4659;
+  border-color: rgba(179, 143, 91, 0.32);
+  background: #f5ecdc;
+  color: #72552a;
 }
 
 .tone-option.bad.active {
-  border-color: #b24a5a;
-  background: #fae7e9;
-  color: #903744;
+  border-color: rgba(178, 74, 90, 0.28);
+  background: #f8e7e7;
+  color: #8b3b45;
 }
 
 .section-head {
@@ -945,6 +999,19 @@ label {
   flex: 1;
 }
 
+.repeat-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 54px;
+  gap: 6px;
+  align-items: center;
+}
+
+.repeat-label {
+  color: #65736b;
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .habit-schedule label {
   width: 138px;
 }
@@ -956,11 +1023,12 @@ label {
 }
 
 .weekday-picker.compact {
-  width: 254px;
+  width: 226px;
+  max-width: 100%;
 }
 
 .weekday {
-  min-height: 34px;
+  min-height: 30px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -969,6 +1037,7 @@ label {
   background: #fffefa;
   color: #59645e;
   font-weight: 900;
+  font-size: 12px;
   line-height: 1;
   text-align: center;
 }
@@ -1112,8 +1181,34 @@ footer {
 .provider-button {
   width: 100%;
   min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   background: #fffefa;
   color: #1f2a2e;
+}
+
+.google-button {
+  border-color: rgba(42, 68, 66, 0.14);
+  background: #ffffff;
+}
+
+.google-logo {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.email-button {
+  border-color: rgba(95, 148, 150, 0.22);
+  background: #edf7f4;
+  color: var(--brand-deep);
+}
+
+.email-button.active {
+  border-color: rgba(95, 148, 150, 0.42);
+  background: #dcefeb;
 }
 
 .auth-form {
@@ -1204,10 +1299,6 @@ footer {
     min-width: 0;
   }
 
-  .save-state {
-    display: none;
-  }
-
   .user-pill {
     max-width: 120px;
     min-height: 28px;
@@ -1260,6 +1351,11 @@ footer {
     min-width: 0;
     flex: 1;
     padding: 0 8px;
+  }
+
+  .date-popover {
+    right: 0;
+    width: min(292px, calc(100vw - 32px));
   }
 
   .add-picker {
@@ -1319,6 +1415,15 @@ footer {
 
   .habit-edit-controls .category-cluster {
     grid-column: 1;
+  }
+
+  .repeat-row {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .repeat-row .everyday-button {
+    grid-column: 2;
+    width: 54px;
   }
 
   .habit-edit-card {
