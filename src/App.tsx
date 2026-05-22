@@ -772,16 +772,14 @@ function HabitListView({
   onDrop: (insertIndex: number, visibleIds: string[]) => void;
 }) {
   const [title, setTitle] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([state.categories[0] ?? "건강"]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState("");
   const [tone, setTone] = useState<HabitTone>("good");
   const [weekdays, setWeekdays] = useState<number[]>(allWeekdays);
 
   useEffect(() => {
     setSelectedCategories((current) => {
-      const kept = current.filter((item) => state.categories.includes(item));
-      if (kept.length) return kept;
-      return state.categories[0] ? [state.categories[0]] : [];
+      return current.filter((item) => state.categories.includes(item));
     });
   }, [state.categories]);
 
@@ -821,7 +819,7 @@ function HabitListView({
 
     setTitle("");
     setNewCategory("");
-    setSelectedCategories(state.categories[0] ? [state.categories[0]] : []);
+    setSelectedCategories([]);
     setTone("good");
     setWeekdays(allWeekdays);
   }
@@ -896,7 +894,7 @@ function HabitListView({
           <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="예: 아침 산책" />
         </label>
         <div className="form-field category-field">
-          <CategoryMultiPicker categories={state.categories} value={selectedCategories} onChange={setSelectedCategories} />
+          <CategoryMultiPicker categories={state.categories} value={selectedCategories} onChange={setSelectedCategories} allowEmpty />
           <div className="category-add-inline">
             <input
               value={newCategory}
@@ -927,15 +925,17 @@ function HabitListView({
         </div>
         <div className="repeat-row">
           <span className="repeat-label">반복</span>
-          <WeekdayPicker value={weekdays} onChange={setWeekdays} compact />
-          <button
-            className={isEveryDay(weekdays) ? "everyday-button active" : "everyday-button"}
-            type="button"
-            onClick={() => toggleEveryDay(weekdays, setWeekdays)}
-            aria-pressed={isEveryDay(weekdays)}
-          >
-            매일
-          </button>
+          <div className="repeat-options">
+            <WeekdayPicker value={weekdays} onChange={setWeekdays} compact />
+            <button
+              className={isEveryDay(weekdays) ? "everyday-button active" : "everyday-button"}
+              type="button"
+              onClick={() => toggleEveryDay(weekdays, setWeekdays)}
+              aria-pressed={isEveryDay(weekdays)}
+            >
+              매일
+            </button>
+          </div>
         </div>
         <button className="primary-button" type="submit">
           <Plus size={17} />
@@ -964,6 +964,7 @@ function HabitListView({
           <DropZone active={draggingGlobal} onDrop={() => onDrop(0, visibleIds)} />
           {visibleHabits.map((habit, index) => {
             const isAddedToDate = dateHabitIds.has(habit.id);
+            const habitCategories = getHabitCategories(habit);
 
             return (
               <div className="reorder-item" key={habit.id}>
@@ -987,27 +988,11 @@ function HabitListView({
                       <GripVertical size={17} />
                     </button>
                     <input className="habit-title-input" value={habit.title} onChange={(event) => updateHabit(habit.id, { title: event.target.value })} />
+                    <span className="habit-category-summary">{habitCategories.join(" · ")}</span>
                     <span className="streak-pill" title="누적 달성 횟수">
                       <Flame size={14} />
                       {habitCompletionCount(state, habit.id)}
                     </span>
-                    <button className="icon-button danger" type="button" title="삭제" aria-label="삭제" onClick={() => deleteHabit(habit.id)}>
-                      <Trash2 size={17} />
-                    </button>
-                  </div>
-
-                  <div className="habit-edit-controls">
-                    <div className="choice-cluster tone-cluster">
-                      <ToneSelector value={getHabitTone(habit)} onChange={(next) => updateHabit(habit.id, { tone: next })} compact />
-                    </div>
-                    <div className="choice-cluster category-cluster">
-                      <CategoryMultiPicker
-                        categories={state.categories}
-                        value={getHabitCategories(habit)}
-                        onChange={(next) => updateHabitCategories(habit.id, next)}
-                        compact
-                      />
-                    </div>
                     <button
                       className={isAddedToDate ? "date-action-button remove" : "date-action-button add"}
                       type="button"
@@ -1018,18 +1003,25 @@ function HabitListView({
                     >
                       {isAddedToDate ? <Minus size={17} /> : <Plus size={17} />}
                     </button>
+                    <button className="icon-button danger" type="button" title="삭제" aria-label="삭제" onClick={() => deleteHabit(habit.id)}>
+                      <Trash2 size={17} />
+                    </button>
                   </div>
 
-                  <div className="habit-schedule">
-                    <WeekdayPicker value={habit.weekdays} onChange={(next) => updateHabitWeekdays(habit.id, next)} compact />
-                    <button
-                      className={isEveryDay(habit.weekdays) ? "everyday-button active" : "everyday-button"}
-                      type="button"
-                      onClick={() => toggleEveryDay(habit.weekdays, (next) => updateHabitWeekdays(habit.id, next))}
-                      aria-pressed={isEveryDay(habit.weekdays)}
-                    >
-                      매일
-                    </button>
+                  <div className="habit-edit-meta">
+                    <ToneSelector value={getHabitTone(habit)} onChange={(next) => updateHabit(habit.id, { tone: next })} compact />
+                    <CategoryMultiPicker categories={state.categories} value={habitCategories} onChange={(next) => updateHabitCategories(habit.id, next)} compact />
+                    <div className="habit-repeat-compact">
+                      <WeekdayPicker value={habit.weekdays} onChange={(next) => updateHabitWeekdays(habit.id, next)} compact />
+                      <button
+                        className={isEveryDay(habit.weekdays) ? "everyday-button active" : "everyday-button"}
+                        type="button"
+                        onClick={() => toggleEveryDay(habit.weekdays, (next) => updateHabitWeekdays(habit.id, next))}
+                        aria-pressed={isEveryDay(habit.weekdays)}
+                      >
+                        매일
+                      </button>
+                    </div>
                   </div>
                 </article>
                 <DropZone active={draggingGlobal} onDrop={() => onDrop(index + 1, visibleIds)} />
@@ -1284,11 +1276,13 @@ function CategoryMultiPicker({
   value,
   onChange,
   compact,
+  allowEmpty,
 }: {
   categories: string[];
   value: string[];
   onChange: (categories: string[]) => void;
   compact?: boolean;
+  allowEmpty?: boolean;
 }) {
   return (
     <div className={compact ? "category-multi compact" : "category-multi"} role="group" aria-label="습관 카테고리">
@@ -1299,7 +1293,7 @@ function CategoryMultiPicker({
             key={category}
             className={active ? "category-option active" : "category-option"}
             type="button"
-            onClick={() => onChange(toggleCategory(value, category))}
+            onClick={() => onChange(toggleCategory(value, category, allowEmpty))}
             aria-pressed={active}
           >
             {category}
@@ -1392,9 +1386,9 @@ function getHabitCategories(habit: Habit) {
   return unique(values.map((category) => category.trim()).filter(Boolean));
 }
 
-function toggleCategory(value: string[], category: string) {
+function toggleCategory(value: string[], category: string, allowEmpty = false) {
   if (value.includes(category)) {
-    return value.length > 1 ? value.filter((item) => item !== category) : value;
+    return value.length > 1 || allowEmpty ? value.filter((item) => item !== category) : value;
   }
   return unique([...value, category]);
 }
