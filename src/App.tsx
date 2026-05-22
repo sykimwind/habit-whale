@@ -313,10 +313,12 @@ export default function App() {
 
         <div className="topbar-actions">
           <AppDateControl dateKey={checkDate} onDateChange={changeGlobalDate} />
-          <span className="user-pill">{user.name}</span>
-          <button className="icon-button" type="button" title="로그아웃" aria-label="로그아웃" onClick={handleLogout}>
-            <LogOut size={18} />
-          </button>
+          <div className="account-actions">
+            <span className="user-pill">{user.name}</span>
+            <button className="icon-button" type="button" title="로그아웃" aria-label="로그아웃" onClick={handleLogout}>
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -987,8 +989,10 @@ function HabitListView({
                     >
                       <GripVertical size={17} />
                     </button>
-                    <input className="habit-title-input" value={habit.title} onChange={(event) => updateHabit(habit.id, { title: event.target.value })} />
-                    <span className="habit-category-summary">{habitCategories.join(" · ")}</span>
+                    <div className="habit-title-cell">
+                      <input className="habit-title-input" value={habit.title} onChange={(event) => updateHabit(habit.id, { title: event.target.value })} />
+                      <CategoryMultiPicker categories={state.categories} value={habitCategories} onChange={(next) => updateHabitCategories(habit.id, next)} compact />
+                    </div>
                     <span className="streak-pill" title="누적 달성 횟수">
                       <Flame size={14} />
                       {habitCompletionCount(state, habit.id)}
@@ -1010,7 +1014,6 @@ function HabitListView({
 
                   <div className="habit-edit-meta">
                     <ToneSelector value={getHabitTone(habit)} onChange={(next) => updateHabit(habit.id, { tone: next })} compact />
-                    <CategoryMultiPicker categories={state.categories} value={habitCategories} onChange={(next) => updateHabitCategories(habit.id, next)} compact />
                     <div className="habit-repeat-compact">
                       <WeekdayPicker value={habit.weekdays} onChange={(next) => updateHabitWeekdays(habit.id, next)} compact />
                       <button
