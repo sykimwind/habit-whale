@@ -18,9 +18,10 @@ import {
   GripVertical,
   ListChecks,
   LogOut,
-  Minus,
+  Pencil,
   Plus,
   Trash2,
+  X,
 } from "lucide-react";
 import type { AppUser, Habit, HabitState, HabitTone, LoginMode } from "./types";
 import {
@@ -349,14 +350,10 @@ export default function App() {
         {activeTab === "habits" && (
           <HabitListView
             state={habitState}
-            actionDateKey={checkDate}
-            dateHabits={checkHabits}
             filterCategory={filterCategory}
             dragTarget={dragTarget}
             onFilterCategory={setFilterCategory}
             onPatch={patchState}
-            onAddHabit={addHabitToDate}
-            onRemoveHabit={removeHabitFromDate}
             onDragStart={(habitId) => setDragTarget({ type: "global", habitId })}
             onDragEnd={() => setDragTarget(null)}
             onDrop={reorderGlobalHabits}
@@ -723,10 +720,18 @@ function TodayView({
       </div>
 
       <div className="today-list-panel">
-        <ReorderStack active={draggingHere}>
+        <ReorderStack
+          active={draggingHere}
+          onDropAtPoint={(clientY, container) => {
+            if (!dragTarget || dragTarget.type !== "date" || dragTarget.dateKey !== dateKey) return;
+            const orderedIds = habits.map((habit) => habit.id);
+            const compactIndex = getClosestCompactInsertIndex(container, clientY, dragTarget.habitId);
+            onDrop(dateKey, expandCompactInsertIndex(orderedIds, dragTarget.habitId, compactIndex));
+          }}
+        >
           <DropZone active={draggingHere} onDrop={() => onDrop(dateKey, 0)} />
           {habits.map((habit, index) => (
-            <div className="reorder-item" key={habit.id}>
+            <div className="reorder-item" data-reorder-id={habit.id} key={habit.id}>
               <HabitRow
                 habit={habit}
                 checked={Boolean(state.completions[dateKey]?.[habit.id])}
@@ -748,27 +753,19 @@ function TodayView({
 
 function HabitListView({
   state,
-  actionDateKey,
-  dateHabits,
   filterCategory,
   dragTarget,
   onFilterCategory,
   onPatch,
-  onAddHabit,
-  onRemoveHabit,
   onDragStart,
   onDragEnd,
   onDrop,
 }: {
   state: HabitState;
-  actionDateKey: string;
-  dateHabits: Habit[];
   filterCategory: string;
   dragTarget: DragTarget | null;
   onFilterCategory: (category: string) => void;
   onPatch: (recipe: (current: HabitState) => HabitState) => void;
-  onAddHabit: (dateKey: string, habitId: string) => void;
-  onRemoveHabit: (dateKey: string, habitId: string) => void;
   onDragStart: (habitId: string) => void;
   onDragEnd: () => void;
   onDrop: (insertIndex: number, visibleIds: string[]) => void;
@@ -778,6 +775,9 @@ function HabitListView({
   const [newCategory, setNewCategory] = useState("");
   const [tone, setTone] = useState<HabitTone>("good");
   const [weekdays, setWeekdays] = useState<number[]>(allWeekdays);
+  const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
+  const editingHabit = state.habits.find((habit) => habit.id === editingHabitId) ?? null;
+  const isEditing = Boolean(editingHabit);
 
   useEffect(() => {
     setSelectedCategories((current) => {
@@ -785,19 +785,48 @@ function HabitListView({
     });
   }, [state.categories]);
 
+  useEffect(() => {
+    if (editingHabitId && !state.habits.some((habit) => habit.id === editingHabitId)) {
+      setEditingHabitId(null);
+    }
+  }, [editingHabitId, state.habits]);
+
   const visibleHabits = [...state.habits]
     .filter((habit) => filterCategory === "전체" || getHabitCategories(habit).includes(filterCategory))
     .sort((a, b) => a.order - b.order);
   const visibleIds = visibleHabits.map((habit) => habit.id);
-  const dateHabitIds = new Set(dateHabits.map((habit) => habit.id));
   const draggingGlobal = dragTarget?.type === "global";
 
-  function createHabit(event: FormEvent) {
+  function saveHabit(event: FormEvent) {
     event.preventDefault();
     const typedCategory = newCategory.trim();
     const finalCategories = unique([...selectedCategories, ...(typedCategory ? [typedCategory] : [])].map((item) => item.trim()).filter(Boolean));
     const primaryCategory = finalCategories[0];
     if (!title.trim() || !primaryCategory) return;
+
+    if (editingHabit) {
+      onPatch((current) => ({
+        ...current,
+        categories: unique([...current.categories, ...finalCategories]),
+        habits: current.habits.map((habit) =>
+          habit.id === editingHabit.id
+            ? {
+                ...habit,
+                title: title.trim(),
+                category: primaryCategory,
+                categories: finalCategories,
+                tone,
+                weekdays,
+                startDate: todayKey,
+                endDate: undefined,
+                active: true,
+              }
+            : habit,
+        ),
+      }));
+      resetForm();
+      return;
+    }
 
     onPatch((current) => ({
       ...current,
@@ -819,6 +848,11 @@ function HabitListView({
       ],
     }));
 
+    resetForm();
+  }
+
+  function resetForm() {
+    setEditingHabitId(null);
     setTitle("");
     setNewCategory("");
     setSelectedCategories([]);
@@ -826,20 +860,13 @@ function HabitListView({
     setWeekdays(allWeekdays);
   }
 
-  function updateHabit(habitId: string, patch: Partial<Habit>) {
-    onPatch((current) => ({
-      ...current,
-      habits: current.habits.map((habit) => (habit.id === habitId ? { ...habit, ...patch } : habit)),
-    }));
-  }
-
-  function updateHabitCategories(habitId: string, nextCategories: string[]) {
-    const finalCategories = unique(nextCategories.filter(Boolean));
-    if (!finalCategories.length) return;
-    updateHabit(habitId, {
-      category: finalCategories[0],
-      categories: finalCategories,
-    });
+  function startEdit(habit: Habit) {
+    setEditingHabitId(habit.id);
+    setTitle(habit.title);
+    setNewCategory("");
+    setSelectedCategories(getHabitCategories(habit));
+    setTone(getHabitTone(habit));
+    setWeekdays(habit.weekdays);
   }
 
   function addNewCategory() {
@@ -856,15 +883,6 @@ function HabitListView({
 
   function toggleEveryDay(value: number[], onChange: (next: number[]) => void) {
     onChange(isEveryDay(value) ? [] : allWeekdays);
-  }
-
-  function updateHabitWeekdays(habitId: string, next: number[]) {
-    updateHabit(habitId, {
-      weekdays: next,
-      startDate: todayKey,
-      endDate: undefined,
-      active: true,
-    });
   }
 
   function deleteHabit(habitId: string) {
@@ -889,8 +907,19 @@ function HabitListView({
 
   return (
     <section className="screen-grid list-grid">
-      <form className="create-panel" onSubmit={createHabit}>
-        <h2>습관 만들기</h2>
+      <form className={isEditing ? "create-panel editing" : "create-panel"} onSubmit={saveHabit}>
+        <div className="form-title-row">
+          <div>
+            <h2>{isEditing ? "습관 수정하기" : "습관 만들기"}</h2>
+            {isEditing && <p className="form-mode-note">수정 중: {editingHabit?.title}</p>}
+          </div>
+          {isEditing && (
+            <button className="small-button ghost-button" type="button" onClick={resetForm}>
+              <X size={15} />
+              취소
+            </button>
+          )}
+        </div>
         <label>
           습관
           <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="예: 아침 산책" />
@@ -940,8 +969,8 @@ function HabitListView({
           </div>
         </div>
         <button className="primary-button" type="submit">
-          <Plus size={17} />
-          만들기
+          {isEditing ? <Pencil size={17} /> : <Plus size={17} />}
+          {isEditing ? "수정 완료" : "만들기"}
         </button>
       </form>
 
@@ -962,75 +991,30 @@ function HabitListView({
           </div>
         </div>
 
-        <ReorderStack active={draggingGlobal}>
+        <ReorderStack
+          active={draggingGlobal}
+          onDropAtPoint={(clientY, container) => {
+            if (!dragTarget || dragTarget.type !== "global") return;
+            const compactIndex = getClosestCompactInsertIndex(container, clientY, dragTarget.habitId);
+            onDrop(expandCompactInsertIndex(visibleIds, dragTarget.habitId, compactIndex), visibleIds);
+          }}
+        >
           <DropZone active={draggingGlobal} onDrop={() => onDrop(0, visibleIds)} />
-          {visibleHabits.map((habit, index) => {
-            const isAddedToDate = dateHabitIds.has(habit.id);
-            const habitCategories = getHabitCategories(habit);
-
-            return (
-              <div className="reorder-item" key={habit.id}>
-                <article
-                  className="habit-edit-card"
-                  draggable
-                  onDragStart={(event) => beginDrag(event, habit.id, onDragStart)}
-                  onDragEnd={onDragEnd}
-                >
-                  <div className="habit-edit-main">
-                    <button
-                      className="drag-handle"
-                      type="button"
-                      title="순서 변경"
-                      aria-label="순서 변경"
-                      draggable
-                      onDragStart={(event) => beginDrag(event, habit.id, onDragStart)}
-                      onPointerDown={(event) => beginPointerDrag(event, habit.id, onDragStart)}
-                      onDragEnd={onDragEnd}
-                    >
-                      <GripVertical size={17} />
-                    </button>
-                    <div className="habit-title-cell">
-                      <input className="habit-title-input" value={habit.title} onChange={(event) => updateHabit(habit.id, { title: event.target.value })} />
-                      <CategoryMultiPicker categories={state.categories} value={habitCategories} onChange={(next) => updateHabitCategories(habit.id, next)} compact />
-                    </div>
-                    <span className="streak-pill" title="누적 달성 횟수">
-                      <Flame size={14} />
-                      {habitCompletionCount(state, habit.id)}
-                    </span>
-                    <button
-                      className={isAddedToDate ? "date-action-button remove" : "date-action-button add"}
-                      type="button"
-                      title={isAddedToDate ? `${formatKoreanDate(actionDateKey)}에서 빼기` : `${formatKoreanDate(actionDateKey)}에 추가`}
-                      aria-label={isAddedToDate ? `${habit.title} 빼기` : `${habit.title} 추가`}
-                      aria-pressed={isAddedToDate}
-                      onClick={() => (isAddedToDate ? onRemoveHabit(actionDateKey, habit.id) : onAddHabit(actionDateKey, habit.id))}
-                    >
-                      {isAddedToDate ? <Minus size={17} /> : <Plus size={17} />}
-                    </button>
-                    <button className="icon-button danger" type="button" title="삭제" aria-label="삭제" onClick={() => deleteHabit(habit.id)}>
-                      <Trash2 size={17} />
-                    </button>
-                  </div>
-
-                  <div className="habit-edit-meta">
-                    <ToneSelector value={getHabitTone(habit)} onChange={(next) => updateHabit(habit.id, { tone: next })} compact />
-                    <div className="habit-repeat-compact">
-                      <WeekdayPicker value={habit.weekdays} onChange={(next) => updateHabitWeekdays(habit.id, next)} compact />
-                      <button
-                        className={isEveryDay(habit.weekdays) ? "everyday-button active" : "everyday-button"}
-                        type="button"
-                        onClick={() => toggleEveryDay(habit.weekdays, (next) => updateHabitWeekdays(habit.id, next))}
-                        aria-pressed={isEveryDay(habit.weekdays)}
-                      >
-                        매일
-                      </button>
-                    </div>
-                  </div>
-                </article>
-                <DropZone active={draggingGlobal} onDrop={() => onDrop(index + 1, visibleIds)} />
-              </div>
-            );
-          })}
+          {visibleHabits.map((habit, index) => (
+            <div className="reorder-item" data-reorder-id={habit.id} key={habit.id}>
+              <HabitListRow
+                habit={habit}
+                editing={editingHabitId === habit.id}
+                completionCount={habitCompletionCount(state, habit.id)}
+                draggable
+                onDragStart={() => onDragStart(habit.id)}
+                onDragEnd={onDragEnd}
+                onEdit={() => startEdit(habit)}
+                onDelete={() => deleteHabit(habit.id)}
+              />
+              <DropZone active={draggingGlobal} onDrop={() => onDrop(index + 1, visibleIds)} />
+            </div>
+          ))}
         </ReorderStack>
       </div>
     </section>
@@ -1208,25 +1192,120 @@ function HabitRow({
   );
 }
 
-function ReorderStack({ active, children }: { active: boolean; children: ReactNode }) {
-  return <div className={active ? "reorder-stack dragging" : "reorder-stack"}>{children}</div>;
+function HabitListRow({
+  habit,
+  completionCount,
+  editing,
+  draggable,
+  onEdit,
+  onDelete,
+  onDragStart,
+  onDragEnd,
+}: {
+  habit: Habit;
+  completionCount: number;
+  editing: boolean;
+  draggable?: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}) {
+  return (
+    <article
+      className={editing ? "habit-row habit-list-row editing" : "habit-row habit-list-row"}
+      draggable={draggable}
+      onDragStart={draggable ? (event) => beginDrag(event, habit.id, onDragStart) : undefined}
+      onDragEnd={onDragEnd}
+    >
+      {draggable && (
+        <button
+          className="drag-handle"
+          type="button"
+          title="순서 변경"
+          aria-label="순서 변경"
+          draggable
+          onDragStart={(event) => beginDrag(event, habit.id, onDragStart)}
+          onPointerDown={(event) => beginPointerDrag(event, habit.id, onDragStart)}
+          onDragEnd={onDragEnd}
+        >
+          <GripVertical size={18} />
+        </button>
+      )}
+      <div className="habit-row-text">
+        <strong>{habit.title}</strong>
+        <span className="habit-meta">
+          <span>{getHabitCategories(habit).join(" · ")}</span>
+          <TonePill tone={getHabitTone(habit)} />
+        </span>
+      </div>
+      <span className="streak-pill" title="누적 달성 횟수">
+        <Flame size={14} />
+        {completionCount}
+      </span>
+      <button className="icon-button edit-button" type="button" title="습관 수정" aria-label={`${habit.title} 수정`} onClick={onEdit}>
+        <Pencil size={17} />
+      </button>
+      <button className="icon-button danger" type="button" title="삭제" aria-label={`${habit.title} 삭제`} onClick={onDelete}>
+        <Trash2 size={17} />
+      </button>
+    </article>
+  );
+}
+
+function ReorderStack({
+  active,
+  children,
+  onDropAtPoint,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onDropAtPoint?: (clientY: number, container: HTMLDivElement) => void;
+}) {
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    if (!active || !onDropAtPoint) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    if (!active || !onDropAtPoint) return;
+    event.preventDefault();
+    onDropAtPoint(event.clientY, event.currentTarget);
+  }
+
+  function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
+    if (!active || !onDropAtPoint) return;
+    if ((event.target as HTMLElement).closest(".drop-zone")) return;
+    event.preventDefault();
+    onDropAtPoint(event.clientY, event.currentTarget);
+  }
+
+  return (
+    <div className={active ? "reorder-stack dragging" : "reorder-stack"} onDragOver={handleDragOver} onDrop={handleDrop} onPointerUp={handlePointerUp}>
+      {children}
+    </div>
+  );
 }
 
 function DropZone({ active, onDrop }: { active: boolean; onDrop: () => void }) {
   function handleDragOver(event: DragEvent<HTMLDivElement>) {
     if (!active) return;
     event.preventDefault();
+    event.stopPropagation();
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     if (!active) return;
     event.preventDefault();
+    event.stopPropagation();
     onDrop();
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
     if (!active) return;
     event.preventDefault();
+    event.stopPropagation();
     onDrop();
   }
 
@@ -1342,7 +1421,7 @@ function beginDrag(event: DragEvent<HTMLElement>, habitId: string, onDragStart?:
 }
 
 function beginPointerDrag(event: PointerEvent<HTMLElement>, habitId: string, onDragStart?: (habitId: string) => void) {
-  if (event.pointerType === "mouse" && event.button !== 0) return;
+  if (event.pointerType === "mouse") return;
   onDragStart?.(habitId);
 }
 
@@ -1407,6 +1486,38 @@ function isEveryDay(weekdays: number[]) {
 
 function unique<T>(items: T[]) {
   return Array.from(new Set(items));
+}
+
+function getClosestCompactInsertIndex(container: HTMLElement, clientY: number, sourceId: string) {
+  const items = Array.from(container.querySelectorAll<HTMLElement>("[data-reorder-id]")).filter((item) => item.dataset.reorderId !== sourceId);
+  if (!items.length) return 0;
+
+  let nextIndex = items.length;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+
+  items.forEach((item, index) => {
+    const rect = item.getBoundingClientRect();
+    const centerY = rect.top + rect.height / 2;
+    const distance = Math.abs(clientY - centerY);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nextIndex = clientY < centerY ? index : index + 1;
+    }
+  });
+
+  return nextIndex;
+}
+
+function expandCompactInsertIndex(ids: string[], sourceId: string, compactIndex: number) {
+  let visibleCount = 0;
+
+  for (let index = 0; index < ids.length; index += 1) {
+    if (ids[index] === sourceId) continue;
+    if (visibleCount === compactIndex) return index;
+    visibleCount += 1;
+  }
+
+  return ids.length;
 }
 
 function moveIdToIndex(ids: string[], sourceId: string, insertIndex: number) {
