@@ -805,10 +805,10 @@ function HabitListView({
     event.preventDefault();
     const typedCategory = newCategory.trim();
     const finalCategories = unique([...selectedCategories, ...(typedCategory ? [typedCategory] : [])].map((item) => item.trim()).filter(Boolean));
-    const primaryCategory = finalCategories[0];
+    const primaryCategory = finalCategories[0] ?? "";
     const nextWhenNote = whenNote.trim();
     const nextWhereNote = whereNote.trim();
-    if (!title.trim() || !primaryCategory) return;
+    if (!title.trim()) return;
 
     if (editingHabit) {
       onPatch((current) => ({
@@ -1174,6 +1174,8 @@ function HabitRow({
   onDragStart?: () => void;
   onDragEnd?: () => void;
 }) {
+  const categoryText = getHabitCategories(habit).join(" · ");
+
   return (
     <article
       className={checked ? "habit-row done" : "habit-row"}
@@ -1199,11 +1201,13 @@ function HabitRow({
         <Check size={18} />
       </button>
       <div className="habit-row-text">
-        <strong>{habit.title}</strong>
-        <span className="habit-meta">
-          <span>{getHabitCategories(habit).join(" · ")}</span>
-          <TonePill tone={getHabitTone(habit)} />
+        <div className="habit-title-line">
+          <strong>{habit.title}</strong>
           <HabitCuePills habit={habit} />
+        </div>
+        <span className="habit-meta">
+          <TonePill tone={getHabitTone(habit)} />
+          {categoryText && <span className="habit-category-text">{categoryText}</span>}
         </span>
       </div>
       <span className="streak-pill" title="누적 달성 횟수">
@@ -1236,6 +1240,8 @@ function HabitListRow({
   onDragStart?: () => void;
   onDragEnd?: () => void;
 }) {
+  const categoryText = getHabitCategories(habit).join(" · ");
+
   return (
     <article
       className={editing ? "habit-row habit-list-row editing" : "habit-row habit-list-row"}
@@ -1258,11 +1264,13 @@ function HabitListRow({
         </button>
       )}
       <div className="habit-row-text">
-        <strong>{habit.title}</strong>
-        <span className="habit-meta">
-          <span>{getHabitCategories(habit).join(" · ")}</span>
-          <TonePill tone={getHabitTone(habit)} />
+        <div className="habit-title-line">
+          <strong>{habit.title}</strong>
           <HabitCuePills habit={habit} />
+        </div>
+        <span className="habit-meta">
+          <TonePill tone={getHabitTone(habit)} />
+          {categoryText && <span className="habit-category-text">{categoryText}</span>}
         </span>
       </div>
       <span className="streak-pill" title="누적 달성 횟수">
