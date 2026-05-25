@@ -16,6 +16,8 @@ export type Habit = {
   category: string;
   categories?: string[];
   tone?: HabitTone;
+  whenNote?: string;
+  whereNote?: string;
   color: string;
   weekdays: number[];
   startDate: string;

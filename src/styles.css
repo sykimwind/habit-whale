@@ -566,6 +566,11 @@ main {
   grid-template-columns: 1fr;
 }
 
+.cue-fields input {
+  min-height: 36px;
+  font-size: 13px;
+}
+
 select,
 input {
   width: 100%;
@@ -935,7 +940,15 @@ label {
   align-items: center;
   gap: 6px;
   min-width: 0;
-  flex-wrap: wrap;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+
+.habit-meta > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tone-pill {
@@ -950,6 +963,43 @@ label {
   font-weight: 900;
   line-height: 16px;
   white-space: nowrap;
+}
+
+.habit-cue-pills {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.habit-cue-pill {
+  max-width: 92px;
+  min-height: 20px;
+  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(42, 68, 66, 0.1);
+  border-radius: 999px;
+  background: #fbfdf9;
+  color: #65736b;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.habit-cue-pill svg {
+  flex: 0 0 auto;
+  opacity: 0.72;
+}
+
+.habit-cue-pill span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tone-pill.good {
@@ -1680,6 +1730,11 @@ footer {
 
   .habit-row-text strong {
     font-size: 15px;
+  }
+
+  .habit-cue-pill {
+    max-width: 66px;
+    padding: 2px 5px;
   }
 
   .streak-pill {

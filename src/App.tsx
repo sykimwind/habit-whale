@@ -18,6 +18,8 @@ import {
   GripVertical,
   ListChecks,
   LogOut,
+  Clock,
+  MapPin,
   Pencil,
   Plus,
   Trash2,
@@ -775,6 +777,8 @@ function HabitListView({
   const [newCategory, setNewCategory] = useState("");
   const [tone, setTone] = useState<HabitTone>("good");
   const [weekdays, setWeekdays] = useState<number[]>(allWeekdays);
+  const [whenNote, setWhenNote] = useState("");
+  const [whereNote, setWhereNote] = useState("");
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
   const editingHabit = state.habits.find((habit) => habit.id === editingHabitId) ?? null;
   const isEditing = Boolean(editingHabit);
@@ -802,6 +806,8 @@ function HabitListView({
     const typedCategory = newCategory.trim();
     const finalCategories = unique([...selectedCategories, ...(typedCategory ? [typedCategory] : [])].map((item) => item.trim()).filter(Boolean));
     const primaryCategory = finalCategories[0];
+    const nextWhenNote = whenNote.trim();
+    const nextWhereNote = whereNote.trim();
     if (!title.trim() || !primaryCategory) return;
 
     if (editingHabit) {
@@ -816,6 +822,8 @@ function HabitListView({
                 category: primaryCategory,
                 categories: finalCategories,
                 tone,
+                whenNote: nextWhenNote || undefined,
+                whereNote: nextWhereNote || undefined,
                 weekdays,
                 startDate: todayKey,
                 endDate: undefined,
@@ -839,6 +847,8 @@ function HabitListView({
           category: primaryCategory,
           categories: finalCategories,
           tone,
+          whenNote: nextWhenNote || undefined,
+          whereNote: nextWhereNote || undefined,
           color: palette[current.habits.length % palette.length],
           weekdays,
           startDate: todayKey,
@@ -858,6 +868,8 @@ function HabitListView({
     setSelectedCategories([]);
     setTone("good");
     setWeekdays(allWeekdays);
+    setWhenNote("");
+    setWhereNote("");
   }
 
   function startEdit(habit: Habit) {
@@ -867,6 +879,8 @@ function HabitListView({
     setSelectedCategories(getHabitCategories(habit));
     setTone(getHabitTone(habit));
     setWeekdays(habit.weekdays);
+    setWhenNote(habit.whenNote ?? "");
+    setWhereNote(habit.whereNote ?? "");
   }
 
   function addNewCategory() {
@@ -924,6 +938,16 @@ function HabitListView({
           습관
           <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="예: 아침 산책" />
         </label>
+        <div className="two-cols cue-fields">
+          <label>
+            언제
+            <input value={whenNote} onChange={(event) => setWhenNote(event.target.value)} placeholder="예: 아침 식사 후" />
+          </label>
+          <label>
+            어디서
+            <input value={whereNote} onChange={(event) => setWhereNote(event.target.value)} placeholder="예: 거실 책상" />
+          </label>
+        </div>
         <div className="form-field category-field">
           <CategoryMultiPicker categories={state.categories} value={selectedCategories} onChange={setSelectedCategories} allowEmpty />
           <div className="category-add-inline">
@@ -1179,6 +1203,7 @@ function HabitRow({
         <span className="habit-meta">
           <span>{getHabitCategories(habit).join(" · ")}</span>
           <TonePill tone={getHabitTone(habit)} />
+          <HabitCuePills habit={habit} />
         </span>
       </div>
       <span className="streak-pill" title="누적 달성 횟수">
@@ -1237,6 +1262,7 @@ function HabitListRow({
         <span className="habit-meta">
           <span>{getHabitCategories(habit).join(" · ")}</span>
           <TonePill tone={getHabitTone(habit)} />
+          <HabitCuePills habit={habit} />
         </span>
       </div>
       <span className="streak-pill" title="누적 달성 횟수">
@@ -1351,6 +1377,29 @@ function ToneSelector({
 function TonePill({ tone }: { tone: HabitTone }) {
   const option = toneOptions.find((item) => item.value === tone) ?? toneOptions[0];
   return <i className={`tone-pill ${tone}`}>{option.label}</i>;
+}
+
+function HabitCuePills({ habit }: { habit: Habit }) {
+  const whenNote = habit.whenNote?.trim();
+  const whereNote = habit.whereNote?.trim();
+  if (!whenNote && !whereNote) return null;
+
+  return (
+    <span className="habit-cue-pills">
+      {whenNote && (
+        <span className="habit-cue-pill" title={`언제: ${whenNote}`}>
+          <Clock size={11} />
+          <span>{whenNote}</span>
+        </span>
+      )}
+      {whereNote && (
+        <span className="habit-cue-pill" title={`어디서: ${whereNote}`}>
+          <MapPin size={11} />
+          <span>{whereNote}</span>
+        </span>
+      )}
+    </span>
+  );
 }
 
 function CategoryMultiPicker({
