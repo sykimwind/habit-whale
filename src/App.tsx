@@ -15,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Flame,
-  GripVertical,
   ListChecks,
   LogOut,
   Clock,
@@ -1175,28 +1174,16 @@ function HabitRow({
   onDragEnd?: () => void;
 }) {
   const categoryText = getHabitCategories(habit).join(" · ");
+  const longPressDrag = useLongPressDrag(habit.id, draggable ? onDragStart : undefined);
 
   return (
     <article
-      className={checked ? "habit-row done" : "habit-row"}
-      draggable={draggable}
-      onDragStart={draggable ? (event) => beginDrag(event, habit.id, onDragStart) : undefined}
-      onDragEnd={onDragEnd}
+      className={`${checked ? "habit-row done" : "habit-row"}${longPressDrag.active ? " drag-armed" : ""}`}
+      onPointerDown={longPressDrag.onPointerDown}
+      onPointerUp={longPressDrag.onPointerUp}
+      onPointerCancel={longPressDrag.onPointerCancel}
+      onPointerLeave={longPressDrag.onPointerLeave}
     >
-      {draggable && (
-        <button
-          className="drag-handle"
-          type="button"
-          title="순서 변경"
-          aria-label="순서 변경"
-          draggable
-          onDragStart={(event) => beginDrag(event, habit.id, onDragStart)}
-          onPointerDown={(event) => beginPointerDrag(event, habit.id, onDragStart)}
-          onDragEnd={onDragEnd}
-        >
-          <GripVertical size={18} />
-        </button>
-      )}
       <button className="check-button" type="button" onClick={onToggle} aria-label="달성 여부">
         <Check size={18} />
       </button>
@@ -1241,28 +1228,16 @@ function HabitListRow({
   onDragEnd?: () => void;
 }) {
   const categoryText = getHabitCategories(habit).join(" · ");
+  const longPressDrag = useLongPressDrag(habit.id, draggable ? onDragStart : undefined);
 
   return (
     <article
-      className={editing ? "habit-row habit-list-row editing" : "habit-row habit-list-row"}
-      draggable={draggable}
-      onDragStart={draggable ? (event) => beginDrag(event, habit.id, onDragStart) : undefined}
-      onDragEnd={onDragEnd}
+      className={`${editing ? "habit-row habit-list-row editing" : "habit-row habit-list-row"}${longPressDrag.active ? " drag-armed" : ""}`}
+      onPointerDown={longPressDrag.onPointerDown}
+      onPointerUp={longPressDrag.onPointerUp}
+      onPointerCancel={longPressDrag.onPointerCancel}
+      onPointerLeave={longPressDrag.onPointerLeave}
     >
-      {draggable && (
-        <button
-          className="drag-handle"
-          type="button"
-          title="순서 변경"
-          aria-label="순서 변경"
-          draggable
-          onDragStart={(event) => beginDrag(event, habit.id, onDragStart)}
-          onPointerDown={(event) => beginPointerDrag(event, habit.id, onDragStart)}
-          onDragEnd={onDragEnd}
-        >
-          <GripVertical size={18} />
-        </button>
-      )}
       <div className="habit-row-text">
         <div className="habit-title-line">
           <strong>{habit.title}</strong>
@@ -1285,6 +1260,57 @@ function HabitListRow({
       </button>
     </article>
   );
+}
+
+function useLongPressDrag(habitId: string, onDragStart?: (habitId: string) => void) {
+  const timerRef = useRef<number | null>(null);
+  const activeRef = useRef(false);
+  const [active, setActive] = useState(false);
+
+  function clearTimer() {
+    if (timerRef.current === null) return;
+    window.clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }
+
+  function finishPress() {
+    clearTimer();
+    if (!activeRef.current) return;
+    window.setTimeout(() => {
+      activeRef.current = false;
+      setActive(false);
+    }, 0);
+  }
+
+  function onPointerDown(event: PointerEvent<HTMLElement>) {
+    if (!onDragStart || isInteractiveTarget(event.target)) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+
+    clearTimer();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    timerRef.current = window.setTimeout(() => {
+      activeRef.current = true;
+      setActive(true);
+      onDragStart(habitId);
+    }, 1000);
+  }
+
+  function onPointerLeave() {
+    if (activeRef.current) return;
+    clearTimer();
+  }
+
+  return {
+    active,
+    onPointerDown,
+    onPointerUp: finishPress,
+    onPointerCancel: finishPress,
+    onPointerLeave,
+  };
+}
+
+function isInteractiveTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest("button, input, select, textarea, a"));
 }
 
 function ReorderStack({
@@ -1469,17 +1495,6 @@ function WeekdayPicker({
       ))}
     </div>
   );
-}
-
-function beginDrag(event: DragEvent<HTMLElement>, habitId: string, onDragStart?: (habitId: string) => void) {
-  event.dataTransfer.effectAllowed = "move";
-  event.dataTransfer.setData("text/plain", habitId);
-  onDragStart?.(habitId);
-}
-
-function beginPointerDrag(event: PointerEvent<HTMLElement>, habitId: string, onDragStart?: (habitId: string) => void) {
-  if (event.pointerType === "mouse") return;
-  onDragStart?.(habitId);
 }
 
 function getHabitsForDate(state: HabitState, dateKey: string) {

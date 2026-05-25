@@ -897,17 +897,33 @@ label {
 
 .habit-row {
   min-height: 62px;
-  padding: 9px 10px;
-  gap: 10px;
+  padding: 8px;
+  gap: 7px;
+  cursor: grab;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 .habit-row.done {
   background: #eef7f1;
 }
 
+.habit-row.drag-armed {
+  border-color: rgba(95, 148, 150, 0.46);
+  background: #f1faf7;
+  cursor: grabbing;
+  box-shadow: inset 0 0 0 1px rgba(95, 148, 150, 0.14);
+}
+
+.habit-row button,
+.habit-row input,
+.habit-row select {
+  user-select: auto;
+}
+
 .habit-list-row {
   min-height: 58px;
-  padding: 8px 10px;
+  padding: 8px;
 }
 
 .habit-list-row.editing {
@@ -932,6 +948,7 @@ label {
 }
 
 .habit-title-line strong {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   font-size: 16px;
@@ -981,15 +998,17 @@ label {
 
 .habit-cue-pills {
   min-width: 0;
+  max-width: min(174px, 42%);
   display: inline-flex;
   align-items: center;
   gap: 4px;
   overflow: hidden;
-  flex: 0 1 auto;
+  flex: 0 999 auto;
+  margin-left: auto;
 }
 
 .habit-cue-pill {
-  max-width: 92px;
+  max-width: 82px;
   min-height: 20px;
   padding: 2px 6px;
   display: inline-flex;
@@ -1075,14 +1094,41 @@ label {
 }
 
 .streak-pill {
-  min-width: 50px;
-  padding: 0 9px;
+  min-width: 38px;
+  min-height: 28px;
+  padding: 0 6px;
   justify-content: center;
   gap: 3px;
   color: #b45718;
   background: #fff7ed;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
+}
+
+.habit-row .check-button {
+  width: 28px;
+  height: 28px;
+}
+
+.habit-row .icon-button {
+  width: 30px;
+  height: 30px;
+}
+
+.habit-row .streak-pill {
+  min-width: 38px;
+  min-height: 28px;
+  padding: 0 6px;
+}
+
+.habit-row .check-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.habit-row .icon-button svg {
+  width: 15px;
+  height: 15px;
 }
 
 .habit-edit-card {
