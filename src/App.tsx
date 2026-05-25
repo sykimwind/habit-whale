@@ -4,7 +4,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type DragEvent,
   type FormEvent,
   type PointerEvent,
   type ReactNode,
@@ -169,9 +168,21 @@ export default function App() {
     const clearDragTarget = () => {
       window.setTimeout(() => setDragTarget(null), 0);
     };
+    const preventTouchScroll = (event: TouchEvent) => {
+      event.preventDefault();
+    };
+    const touchOptions = { passive: false } as AddEventListenerOptions;
 
+    document.documentElement.classList.add("reorder-scroll-lock");
+    document.body.classList.add("reorder-scroll-lock");
+    window.addEventListener("touchmove", preventTouchScroll, touchOptions);
     window.addEventListener("pointerup", clearDragTarget);
-    return () => window.removeEventListener("pointerup", clearDragTarget);
+    return () => {
+      document.documentElement.classList.remove("reorder-scroll-lock");
+      document.body.classList.remove("reorder-scroll-lock");
+      window.removeEventListener("touchmove", preventTouchScroll, touchOptions);
+      window.removeEventListener("pointerup", clearDragTarget);
+    };
   }, [dragTarget]);
 
   const checkHabits = useMemo(() => getHabitsForDate(habitState, checkDate), [habitState, checkDate]);
@@ -660,6 +671,19 @@ function TodayView({
   const addedHabitIds = new Set(habits.map((habit) => habit.id));
   const filteredAddHabits = state.habits.filter((habit) => addCategory === "전체" || getHabitCategories(habit).includes(addCategory));
   const draggingHere = dragTarget?.type === "date" && dragTarget.dateKey === dateKey;
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!draggingHere) setPreviewIndex(null);
+  }, [draggingHere]);
+
+  function resolveDropIndex(clientY: number, container: HTMLDivElement) {
+    if (!dragTarget || dragTarget.type !== "date" || dragTarget.dateKey !== dateKey) return null;
+
+    const orderedIds = habits.map((habit) => habit.id);
+    const compactIndex = getClosestCompactInsertIndex(container, clientY, dragTarget.habitId);
+    return expandCompactInsertIndex(orderedIds, dragTarget.habitId, compactIndex);
+  }
 
   return (
     <section className="today-layout">
@@ -723,14 +747,18 @@ function TodayView({
       <div className="today-list-panel">
         <ReorderStack
           active={draggingHere}
+          onMoveAtPoint={(clientY, container) => {
+            const nextIndex = resolveDropIndex(clientY, container);
+            setPreviewIndex(nextIndex);
+            return nextIndex;
+          }}
           onDropAtPoint={(clientY, container) => {
-            if (!dragTarget || dragTarget.type !== "date" || dragTarget.dateKey !== dateKey) return;
-            const orderedIds = habits.map((habit) => habit.id);
-            const compactIndex = getClosestCompactInsertIndex(container, clientY, dragTarget.habitId);
-            onDrop(dateKey, expandCompactInsertIndex(orderedIds, dragTarget.habitId, compactIndex));
+            const nextIndex = resolveDropIndex(clientY, container);
+            if (nextIndex === null) return;
+            onDrop(dateKey, nextIndex);
           }}
         >
-          <DropZone active={draggingHere} onDrop={() => onDrop(dateKey, 0)} />
+          <DropZone active={draggingHere} highlighted={previewIndex === 0} onDrop={() => onDrop(dateKey, 0)} />
           {habits.map((habit, index) => (
             <div className="reorder-item" data-reorder-id={habit.id} key={habit.id}>
               <HabitRow
@@ -743,7 +771,7 @@ function TodayView({
                 onToggle={() => onToggle(dateKey, habit.id)}
                 onRemove={() => onRemoveHabit(dateKey, habit.id)}
               />
-              <DropZone active={draggingHere} onDrop={() => onDrop(dateKey, index + 1)} />
+              <DropZone active={draggingHere} highlighted={previewIndex === index + 1} onDrop={() => onDrop(dateKey, index + 1)} />
             </div>
           ))}
         </ReorderStack>
@@ -800,6 +828,18 @@ function HabitListView({
     .sort((a, b) => a.order - b.order);
   const visibleIds = visibleHabits.map((habit) => habit.id);
   const draggingGlobal = dragTarget?.type === "global";
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!draggingGlobal) setPreviewIndex(null);
+  }, [draggingGlobal]);
+
+  function resolveDropIndex(clientY: number, container: HTMLDivElement) {
+    if (!dragTarget || dragTarget.type !== "global") return null;
+
+    const compactIndex = getClosestCompactInsertIndex(container, clientY, dragTarget.habitId);
+    return expandCompactInsertIndex(visibleIds, dragTarget.habitId, compactIndex);
+  }
 
   function saveHabit(event: FormEvent) {
     event.preventDefault();
@@ -1018,13 +1058,18 @@ function HabitListView({
 
         <ReorderStack
           active={draggingGlobal}
+          onMoveAtPoint={(clientY, container) => {
+            const nextIndex = resolveDropIndex(clientY, container);
+            setPreviewIndex(nextIndex);
+            return nextIndex;
+          }}
           onDropAtPoint={(clientY, container) => {
-            if (!dragTarget || dragTarget.type !== "global") return;
-            const compactIndex = getClosestCompactInsertIndex(container, clientY, dragTarget.habitId);
-            onDrop(expandCompactInsertIndex(visibleIds, dragTarget.habitId, compactIndex), visibleIds);
+            const nextIndex = resolveDropIndex(clientY, container);
+            if (nextIndex === null) return;
+            onDrop(nextIndex, visibleIds);
           }}
         >
-          <DropZone active={draggingGlobal} onDrop={() => onDrop(0, visibleIds)} />
+          <DropZone active={draggingGlobal} highlighted={previewIndex === 0} onDrop={() => onDrop(0, visibleIds)} />
           {visibleHabits.map((habit, index) => (
             <div className="reorder-item" data-reorder-id={habit.id} key={habit.id}>
               <HabitListRow
@@ -1037,7 +1082,7 @@ function HabitListView({
                 onEdit={() => startEdit(habit)}
                 onDelete={() => deleteHabit(habit.id)}
               />
-              <DropZone active={draggingGlobal} onDrop={() => onDrop(index + 1, visibleIds)} />
+              <DropZone active={draggingGlobal} highlighted={previewIndex === index + 1} onDrop={() => onDrop(index + 1, visibleIds)} />
             </div>
           ))}
         </ReorderStack>
@@ -1181,6 +1226,7 @@ function HabitRow({
     <article
       className={`${checked ? "habit-row done" : "habit-row"}${longPressDrag.active ? " drag-armed" : ""}`}
       onPointerDown={longPressDrag.onPointerDown}
+      onPointerMove={longPressDrag.onPointerMove}
       onPointerUp={longPressDrag.onPointerUp}
       onPointerCancel={longPressDrag.onPointerCancel}
       onPointerLeave={longPressDrag.onPointerLeave}
@@ -1233,6 +1279,7 @@ function HabitListRow({
     <article
       className={`${editing ? "habit-row habit-list-row editing" : "habit-row habit-list-row"}${longPressDrag.active ? " drag-armed" : ""}`}
       onPointerDown={longPressDrag.onPointerDown}
+      onPointerMove={longPressDrag.onPointerMove}
       onPointerUp={longPressDrag.onPointerUp}
       onPointerCancel={longPressDrag.onPointerCancel}
       onPointerLeave={longPressDrag.onPointerLeave}
@@ -1263,6 +1310,7 @@ function HabitListRow({
 function useLongPressDrag(habitId: string, onDragStart?: (habitId: string) => void) {
   const timerRef = useRef<number | null>(null);
   const activeRef = useRef(false);
+  const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const [active, setActive] = useState(false);
 
   function clearTimer() {
@@ -1273,6 +1321,7 @@ function useLongPressDrag(habitId: string, onDragStart?: (habitId: string) => vo
 
   function finishPress() {
     clearTimer();
+    startPointRef.current = null;
     if (!activeRef.current) return;
     window.setTimeout(() => {
       activeRef.current = false;
@@ -1285,12 +1334,28 @@ function useLongPressDrag(habitId: string, onDragStart?: (habitId: string) => vo
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
     clearTimer();
+    startPointRef.current = { x: event.clientX, y: event.clientY };
     event.currentTarget.setPointerCapture?.(event.pointerId);
     timerRef.current = window.setTimeout(() => {
       activeRef.current = true;
       setActive(true);
       onDragStart(habitId);
     }, 1000);
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLElement>) {
+    if (!onDragStart) return;
+
+    if (!activeRef.current) {
+      const startPoint = startPointRef.current;
+      if (!startPoint) return;
+
+      const moved = Math.hypot(event.clientX - startPoint.x, event.clientY - startPoint.y);
+      if (moved > 9) clearTimer();
+      return;
+    }
+
+    event.preventDefault();
   }
 
   function onPointerLeave() {
@@ -1301,6 +1366,7 @@ function useLongPressDrag(habitId: string, onDragStart?: (habitId: string) => vo
   return {
     active,
     onPointerDown,
+    onPointerMove,
     onPointerUp: finishPress,
     onPointerCancel: finishPress,
     onPointerLeave,
@@ -1314,52 +1380,99 @@ function isInteractiveTarget(target: EventTarget | null) {
 function ReorderStack({
   active,
   children,
+  onMoveAtPoint,
   onDropAtPoint,
 }: {
   active: boolean;
   children: ReactNode;
+  onMoveAtPoint?: (clientY: number, container: HTMLDivElement) => number | null;
   onDropAtPoint?: (clientY: number, container: HTMLDivElement) => void;
 }) {
-  function handleDragOver(event: DragEvent<HTMLDivElement>) {
-    if (!active || !onDropAtPoint) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lastClientYRef = useRef<number | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const activeRef = useRef(active);
+
+  useEffect(() => {
+    activeRef.current = active;
+    if (active) return;
+    lastClientYRef.current = null;
+    cancelAutoScroll();
+  }, [active]);
+
+  function cancelAutoScroll() {
+    if (frameRef.current === null) return;
+    window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
   }
 
-  function handleDrop(event: DragEvent<HTMLDivElement>) {
-    if (!active || !onDropAtPoint) return;
+  function updatePreview(clientY: number) {
+    const container = containerRef.current;
+    if (!activeRef.current || !container || !onMoveAtPoint) return;
+    onMoveAtPoint(clientY, container);
+  }
+
+  function ensureAutoScroll() {
+    if (frameRef.current !== null) return;
+    frameRef.current = window.requestAnimationFrame(runAutoScroll);
+  }
+
+  function runAutoScroll() {
+    frameRef.current = null;
+    const clientY = lastClientYRef.current;
+    const container = containerRef.current;
+    if (!activeRef.current || clientY === null || !container) return;
+
+    const scroller = getScrollParent(container);
+    const rect = getScrollRect(scroller);
+    const threshold = Math.min(96, rect.height / 3);
+    let delta = 0;
+
+    if (clientY < rect.top + threshold) {
+      delta = -getAutoScrollDelta(rect.top + threshold - clientY, threshold);
+    } else if (clientY > rect.bottom - threshold) {
+      delta = getAutoScrollDelta(clientY - (rect.bottom - threshold), threshold);
+    }
+
+    if (delta !== 0) {
+      scrollByContainer(scroller, delta);
+      onMoveAtPoint?.(clientY, container);
+    }
+
+    frameRef.current = window.requestAnimationFrame(runAutoScroll);
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!activeRef.current) return;
     event.preventDefault();
-    onDropAtPoint(event.clientY, event.currentTarget);
+    event.stopPropagation();
+    lastClientYRef.current = event.clientY;
+    updatePreview(event.clientY);
+    ensureAutoScroll();
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
-    if (!active || !onDropAtPoint) return;
+    if (!activeRef.current || !onDropAtPoint) return;
     if ((event.target as HTMLElement).closest(".drop-zone")) return;
     event.preventDefault();
+    event.stopPropagation();
+    cancelAutoScroll();
     onDropAtPoint(event.clientY, event.currentTarget);
   }
 
   return (
-    <div className={active ? "reorder-stack dragging" : "reorder-stack"} onDragOver={handleDragOver} onDrop={handleDrop} onPointerUp={handlePointerUp}>
+    <div
+      ref={containerRef}
+      className={active ? "reorder-stack dragging" : "reorder-stack"}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+    >
       {children}
     </div>
   );
 }
 
-function DropZone({ active, onDrop }: { active: boolean; onDrop: () => void }) {
-  function handleDragOver(event: DragEvent<HTMLDivElement>) {
-    if (!active) return;
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  function handleDrop(event: DragEvent<HTMLDivElement>) {
-    if (!active) return;
-    event.preventDefault();
-    event.stopPropagation();
-    onDrop();
-  }
-
+function DropZone({ active, highlighted, onDrop }: { active: boolean; highlighted?: boolean; onDrop: () => void }) {
   function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
     if (!active) return;
     event.preventDefault();
@@ -1369,9 +1482,7 @@ function DropZone({ active, onDrop }: { active: boolean; onDrop: () => void }) {
 
   return (
     <div
-      className={active ? "drop-zone active" : "drop-zone"}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
+      className={["drop-zone", active ? "active" : "", highlighted ? "highlighted" : ""].filter(Boolean).join(" ")}
       onPointerUp={handlePointerUp}
       aria-hidden="true"
     >
@@ -1556,6 +1667,41 @@ function isEveryDay(weekdays: number[]) {
 
 function unique<T>(items: T[]) {
   return Array.from(new Set(items));
+}
+
+function getScrollParent(element: HTMLElement) {
+  let current: HTMLElement | null = element.parentElement;
+
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const canScroll = /(auto|scroll)/.test(style.overflowY) && current.scrollHeight > current.clientHeight;
+    if (canScroll) return current;
+    current = current.parentElement;
+  }
+
+  return document.scrollingElement ?? document.documentElement;
+}
+
+function getScrollRect(scroller: Element) {
+  if (scroller === document.documentElement || scroller === document.body || scroller === document.scrollingElement) {
+    return { top: 0, bottom: window.innerHeight, height: window.innerHeight };
+  }
+
+  return scroller.getBoundingClientRect();
+}
+
+function getAutoScrollDelta(distance: number, threshold: number) {
+  const ratio = Math.min(1, Math.max(0, distance / threshold));
+  return Math.ceil(4 + ratio * 18);
+}
+
+function scrollByContainer(scroller: Element, deltaY: number) {
+  if (scroller === document.documentElement || scroller === document.body || scroller === document.scrollingElement) {
+    window.scrollBy({ top: deltaY });
+    return;
+  }
+
+  scroller.scrollTop += deltaY;
 }
 
 function getClosestCompactInsertIndex(container: HTMLElement, clientY: number, sourceId: string) {
