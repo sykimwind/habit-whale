@@ -18,6 +18,13 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -225,6 +232,7 @@ main {
   min-height: 0;
   overflow-y: auto;
   padding: 0 2px 8px;
+  overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 
@@ -510,7 +518,7 @@ main {
 }
 
 .calendar-grid {
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
@@ -941,15 +949,13 @@ label {
 
 .habit-title-line {
   min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: block;
   overflow: hidden;
 }
 
 .habit-title-line strong {
-  flex: 1 1 auto;
   min-width: 0;
+  display: block;
   overflow: hidden;
   font-size: 16px;
   text-overflow: ellipsis;
@@ -975,13 +981,6 @@ label {
   flex-wrap: nowrap;
 }
 
-.habit-category-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .tone-pill {
   min-height: 20px;
   padding: 2px 7px;
@@ -998,13 +997,12 @@ label {
 
 .habit-cue-pills {
   min-width: 0;
-  max-width: min(174px, 42%);
+  max-width: min(260px, 72%);
   display: inline-flex;
   align-items: center;
   gap: 4px;
   overflow: hidden;
-  flex: 0 999 auto;
-  margin-left: auto;
+  flex: 1 1 auto;
 }
 
 .habit-cue-pill {
@@ -1429,6 +1427,7 @@ label {
 footer {
   flex: 0 0 auto;
   padding: 0 4px;
+  line-height: 1.25;
   text-align: center;
 }
 
@@ -1526,10 +1525,6 @@ footer {
 
   .create-panel {
     position: static;
-  }
-
-  .calendar-grid .date-panel {
-    order: -1;
   }
 
   .today-summary {

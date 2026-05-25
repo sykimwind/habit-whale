@@ -779,6 +779,7 @@ function HabitListView({
   const [whenNote, setWhenNote] = useState("");
   const [whereNote, setWhereNote] = useState("");
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const editingHabit = state.habits.find((habit) => habit.id === editingHabitId) ?? null;
   const isEditing = Boolean(editingHabit);
 
@@ -880,6 +881,7 @@ function HabitListView({
     setWeekdays(habit.weekdays);
     setWhenNote(habit.whenNote ?? "");
     setWhereNote(habit.whereNote ?? "");
+    window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }
 
   function addNewCategory() {
@@ -920,7 +922,7 @@ function HabitListView({
 
   return (
     <section className="screen-grid list-grid">
-      <form className={isEditing ? "create-panel editing" : "create-panel"} onSubmit={saveHabit}>
+      <form ref={formRef} className={isEditing ? "create-panel editing" : "create-panel"} onSubmit={saveHabit}>
         <div className="form-title-row">
           <div>
             <h2>{isEditing ? "습관 수정하기" : "습관 만들기"}</h2>
@@ -1173,7 +1175,6 @@ function HabitRow({
   onDragStart?: () => void;
   onDragEnd?: () => void;
 }) {
-  const categoryText = getHabitCategories(habit).join(" · ");
   const longPressDrag = useLongPressDrag(habit.id, draggable ? onDragStart : undefined);
 
   return (
@@ -1190,11 +1191,10 @@ function HabitRow({
       <div className="habit-row-text">
         <div className="habit-title-line">
           <strong>{habit.title}</strong>
-          <HabitCuePills habit={habit} />
         </div>
         <span className="habit-meta">
           <TonePill tone={getHabitTone(habit)} />
-          {categoryText && <span className="habit-category-text">{categoryText}</span>}
+          <HabitCuePills habit={habit} />
         </span>
       </div>
       <span className="streak-pill" title="누적 달성 횟수">
@@ -1227,7 +1227,6 @@ function HabitListRow({
   onDragStart?: () => void;
   onDragEnd?: () => void;
 }) {
-  const categoryText = getHabitCategories(habit).join(" · ");
   const longPressDrag = useLongPressDrag(habit.id, draggable ? onDragStart : undefined);
 
   return (
@@ -1241,11 +1240,10 @@ function HabitListRow({
       <div className="habit-row-text">
         <div className="habit-title-line">
           <strong>{habit.title}</strong>
-          <HabitCuePills habit={habit} />
         </div>
         <span className="habit-meta">
           <TonePill tone={getHabitTone(habit)} />
-          {categoryText && <span className="habit-category-text">{categoryText}</span>}
+          <HabitCuePills habit={habit} />
         </span>
       </div>
       <span className="streak-pill" title="누적 달성 횟수">
