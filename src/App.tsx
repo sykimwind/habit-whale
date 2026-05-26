@@ -360,6 +360,7 @@ export default function App() {
             onAddHabit={addHabitToDate}
             onRemoveHabit={removeHabitFromDate}
             onToggle={toggleCompletion}
+            onPatch={patchState}
             onDragStart={(habitId) => setDragTarget({ type: "date", habitId, dateKey: checkDate })}
             onDragEnd={() => setDragTarget(null)}
             onDrop={reorderDateHabits}
@@ -655,6 +656,7 @@ function TodayView({
   onAddHabit,
   onRemoveHabit,
   onToggle,
+  onPatch,
   onDragStart,
   onDragEnd,
   onDrop,
@@ -668,12 +670,14 @@ function TodayView({
   onAddHabit: (dateKey: string, habitId: string) => void;
   onRemoveHabit: (dateKey: string, habitId: string) => void;
   onToggle: (dateKey: string, habitId: string) => void;
+  onPatch: (recipe: (current: HabitState) => HabitState) => void;
   onDragStart: (habitId: string) => void;
   onDragEnd: () => void;
   onDrop: (dateKey: string, insertIndex: number) => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [addCategory, setAddCategory] = useState("전체");
+  const [createOpen, setCreateOpen] = useState(false);
   const addCategories = ["전체", ...state.categories];
   const addedHabitIds = new Set(habits.map((habit) => habit.id));
   const filteredAddHabits = state.habits.filter((habit) => addCategory === "전체" || getHabitCategories(habit).includes(addCategory));
@@ -725,6 +729,10 @@ function TodayView({
                   </button>
                 ))}
               </div>
+              <button className="add-picker-create-button" type="button" onClick={() => setCreateOpen(true)}>
+                <Plus size={16} />
+                새 습관 만들기
+              </button>
               <div className="add-picker-list">
                 {filteredAddHabits.map((habit) => (
                   <div className="add-picker-row" key={habit.id}>
@@ -783,6 +791,19 @@ function TodayView({
           ))}
         </ReorderStack>
       </div>
+
+      {createOpen && (
+        <HabitFormModal
+          state={state}
+          onPatch={onPatch}
+          onClose={() => setCreateOpen(false)}
+          onSaved={(habitId) => {
+            onAddHabit(dateKey, habitId);
+            setCreateOpen(false);
+            setAddOpen(false);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -806,23 +827,9 @@ function HabitListView({
   onDragEnd: () => void;
   onDrop: (insertIndex: number, visibleIds: string[]) => void;
 }) {
-  const [title, setTitle] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [newCategory, setNewCategory] = useState("");
-  const [tone, setTone] = useState<HabitTone>("good");
-  const [weekdays, setWeekdays] = useState<number[]>(allWeekdays);
-  const [whenNote, setWhenNote] = useState("");
-  const [whereNote, setWhereNote] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
   const editingHabit = state.habits.find((habit) => habit.id === editingHabitId) ?? null;
-  const isEditing = Boolean(editingHabit);
-
-  useEffect(() => {
-    setSelectedCategories((current) => {
-      return current.filter((item) => state.categories.includes(item));
-    });
-  }, [state.categories]);
 
   useEffect(() => {
     if (editingHabitId && !state.habits.some((habit) => habit.id === editingHabitId)) {
@@ -848,103 +855,9 @@ function HabitListView({
     return expandCompactInsertIndex(visibleIds, dragTarget.habitId, compactIndex);
   }
 
-  function saveHabit(event: FormEvent) {
-    event.preventDefault();
-    const typedCategory = newCategory.trim();
-    const finalCategories = unique([...selectedCategories, ...(typedCategory ? [typedCategory] : [])].map((item) => item.trim()).filter(Boolean));
-    const primaryCategory = finalCategories[0] ?? "";
-    const nextWhenNote = whenNote.trim();
-    const nextWhereNote = whereNote.trim();
-    if (!title.trim()) return;
-
-    if (editingHabit) {
-      onPatch((current) => ({
-        ...current,
-        categories: unique([...current.categories, ...finalCategories]),
-        habits: current.habits.map((habit) =>
-          habit.id === editingHabit.id
-            ? {
-                ...habit,
-                title: title.trim(),
-                category: primaryCategory,
-                categories: finalCategories,
-                tone,
-                whenNote: nextWhenNote || undefined,
-                whereNote: nextWhereNote || undefined,
-                weekdays,
-                startDate: todayKey,
-                endDate: undefined,
-                active: true,
-              }
-            : habit,
-        ),
-      }));
-      resetForm();
-      return;
-    }
-
-    onPatch((current) => ({
-      ...current,
-      categories: unique([...current.categories, ...finalCategories]),
-      habits: [
-        ...current.habits,
-        {
-          id: makeId("habit"),
-          title: title.trim(),
-          category: primaryCategory,
-          categories: finalCategories,
-          tone,
-          whenNote: nextWhenNote || undefined,
-          whereNote: nextWhereNote || undefined,
-          color: palette[current.habits.length % palette.length],
-          weekdays,
-          startDate: todayKey,
-          order: current.habits.length,
-          active: true,
-        },
-      ],
-    }));
-
-    resetForm();
-  }
-
-  function resetForm() {
-    setEditingHabitId(null);
-    setTitle("");
-    setNewCategory("");
-    setSelectedCategories([]);
-    setTone("good");
-    setWeekdays(allWeekdays);
-    setWhenNote("");
-    setWhereNote("");
-  }
-
   function startEdit(habit: Habit) {
+    setCreateOpen(false);
     setEditingHabitId(habit.id);
-    setTitle(habit.title);
-    setNewCategory("");
-    setSelectedCategories(getHabitCategories(habit));
-    setTone(getHabitTone(habit));
-    setWeekdays(habit.weekdays);
-    setWhenNote(habit.whenNote ?? "");
-    setWhereNote(habit.whereNote ?? "");
-    window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-  }
-
-  function addNewCategory() {
-    const value = newCategory.trim();
-    if (!value) return;
-
-    onPatch((current) => ({
-      ...current,
-      categories: unique([...current.categories, value]),
-    }));
-    setSelectedCategories((current) => unique([...current, value]));
-    setNewCategory("");
-  }
-
-  function toggleEveryDay(value: number[], onChange: (next: number[]) => void) {
-    onChange(isEveryDay(value) ? [] : allWeekdays);
   }
 
   function deleteHabit(habitId: string) {
@@ -968,23 +881,214 @@ function HabitListView({
   }
 
   return (
-    <section className="screen-grid list-grid">
-      <form ref={formRef} className={isEditing ? "create-panel editing" : "create-panel"} onSubmit={saveHabit}>
+    <section className="habit-list-screen">
+      <div className="habit-list-panel">
+        <div className="section-head">
+          <h2>습관 리스트</h2>
+          <button
+            className="create-habit-button"
+            type="button"
+            onClick={() => {
+              setEditingHabitId(null);
+              setCreateOpen(true);
+            }}
+          >
+            <Plus size={16} />
+            만들기
+          </button>
+          <div className="category-filter">
+            {["전체", ...state.categories].map((item) => (
+              <button
+                key={item}
+                className={filterCategory === item ? "chip active" : "chip"}
+                type="button"
+                onClick={() => onFilterCategory(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <ReorderStack
+          active={draggingGlobal}
+          onMoveAtPoint={(clientY, container) => {
+            const nextIndex = resolveDropIndex(clientY, container);
+            setPreviewIndex(nextIndex);
+            return nextIndex;
+          }}
+          onDropAtPoint={(clientY, container) => {
+            const nextIndex = resolveDropIndex(clientY, container);
+            if (nextIndex === null) return;
+            onDrop(nextIndex, visibleIds);
+          }}
+        >
+          <DropZone active={draggingGlobal} highlighted={previewIndex === 0} onDrop={() => onDrop(0, visibleIds)} />
+          {visibleHabits.map((habit, index) => (
+            <div className="reorder-item" data-reorder-id={habit.id} key={habit.id}>
+              <HabitListRow
+                habit={habit}
+                editing={editingHabitId === habit.id}
+                completionCount={habitCompletionCount(state, habit.id)}
+                draggable
+                onDragStart={() => onDragStart(habit.id)}
+                onDragEnd={onDragEnd}
+                onEdit={() => startEdit(habit)}
+                onDelete={() => deleteHabit(habit.id)}
+              />
+              <DropZone active={draggingGlobal} highlighted={previewIndex === index + 1} onDrop={() => onDrop(index + 1, visibleIds)} />
+            </div>
+          ))}
+        </ReorderStack>
+      </div>
+
+      {(createOpen || editingHabit) && (
+        <HabitFormModal
+          state={state}
+          habit={editingHabit}
+          onPatch={onPatch}
+          onClose={() => {
+            setCreateOpen(false);
+            setEditingHabitId(null);
+          }}
+          onSaved={() => {
+            setCreateOpen(false);
+            setEditingHabitId(null);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function HabitFormModal({
+  state,
+  habit,
+  onPatch,
+  onClose,
+  onSaved,
+}: {
+  state: HabitState;
+  habit?: Habit | null;
+  onPatch: (recipe: (current: HabitState) => HabitState) => void;
+  onClose: () => void;
+  onSaved?: (habitId: string) => void;
+}) {
+  const isEditing = Boolean(habit);
+  const [title, setTitle] = useState(habit?.title ?? "");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(habit ? getHabitCategories(habit) : []);
+  const [newCategory, setNewCategory] = useState("");
+  const [tone, setTone] = useState<HabitTone>(habit ? getHabitTone(habit) : "good");
+  const [weekdays, setWeekdays] = useState<number[]>(habit?.weekdays ?? allWeekdays);
+  const [whenNote, setWhenNote] = useState(habit?.whenNote ?? "");
+  const [whereNote, setWhereNote] = useState(habit?.whereNote ?? "");
+
+  useEffect(() => {
+    setSelectedCategories((current) => current.filter((item) => state.categories.includes(item)));
+  }, [state.categories]);
+
+  function saveHabit(event: FormEvent) {
+    event.preventDefault();
+    const typedCategory = newCategory.trim();
+    const finalCategories = unique([...selectedCategories, ...(typedCategory ? [typedCategory] : [])].map((item) => item.trim()).filter(Boolean));
+    const primaryCategory = finalCategories[0] ?? "";
+    const nextTitle = title.trim();
+    const nextWhenNote = whenNote.trim();
+    const nextWhereNote = whereNote.trim();
+    if (!nextTitle) return;
+
+    if (habit) {
+      onPatch((current) => ({
+        ...current,
+        categories: unique([...current.categories, ...finalCategories]),
+        habits: current.habits.map((item) =>
+          item.id === habit.id
+            ? {
+                ...item,
+                title: nextTitle,
+                category: primaryCategory,
+                categories: finalCategories,
+                tone,
+                whenNote: nextWhenNote || undefined,
+                whereNote: nextWhereNote || undefined,
+                weekdays,
+                startDate: todayKey,
+                endDate: undefined,
+                active: true,
+              }
+            : item,
+        ),
+      }));
+      onSaved?.(habit.id);
+      onClose();
+      return;
+    }
+
+    const habitId = makeId("habit");
+    onPatch((current) => ({
+      ...current,
+      categories: unique([...current.categories, ...finalCategories]),
+      habits: [
+        ...current.habits,
+        {
+          id: habitId,
+          title: nextTitle,
+          category: primaryCategory,
+          categories: finalCategories,
+          tone,
+          whenNote: nextWhenNote || undefined,
+          whereNote: nextWhereNote || undefined,
+          color: palette[current.habits.length % palette.length],
+          weekdays,
+          startDate: todayKey,
+          order: current.habits.length,
+          active: true,
+        },
+      ],
+    }));
+
+    onSaved?.(habitId);
+    onClose();
+  }
+
+  function addNewCategory() {
+    const value = newCategory.trim();
+    if (!value) return;
+
+    onPatch((current) => ({
+      ...current,
+      categories: unique([...current.categories, value]),
+    }));
+    setSelectedCategories((current) => unique([...current, value]));
+    setNewCategory("");
+  }
+
+  function toggleEveryDay(value: number[], onChange: (next: number[]) => void) {
+    onChange(isEveryDay(value) ? [] : allWeekdays);
+  }
+
+  return (
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <form className={isEditing ? "create-panel modal-panel editing" : "create-panel modal-panel"} onSubmit={saveHabit}>
         <div className="form-title-row">
           <div>
             <h2>{isEditing ? "습관 수정하기" : "습관 만들기"}</h2>
-            {isEditing && <p className="form-mode-note">수정 중: {editingHabit?.title}</p>}
+            {isEditing && <p className="form-mode-note">수정 중: {habit?.title}</p>}
           </div>
-          {isEditing && (
-            <button className="small-button ghost-button" type="button" onClick={resetForm}>
-              <X size={15} />
-              취소
-            </button>
-          )}
+          <button className="small-button ghost-button" type="button" onClick={onClose}>
+            <X size={15} />
+            닫기
+          </button>
         </div>
         <label>
           습관
-          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="예: 아침 산책" />
+          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="예: 아침 산책" autoFocus />
         </label>
         <div className="two-cols cue-fields">
           <label>
@@ -1045,56 +1149,7 @@ function HabitListView({
           {isEditing ? "수정 완료" : "만들기"}
         </button>
       </form>
-
-      <div className="habit-list-panel">
-        <div className="section-head">
-          <h2>습관 리스트</h2>
-          <div className="category-filter">
-            {["전체", ...state.categories].map((item) => (
-              <button
-                key={item}
-                className={filterCategory === item ? "chip active" : "chip"}
-                type="button"
-                onClick={() => onFilterCategory(item)}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <ReorderStack
-          active={draggingGlobal}
-          onMoveAtPoint={(clientY, container) => {
-            const nextIndex = resolveDropIndex(clientY, container);
-            setPreviewIndex(nextIndex);
-            return nextIndex;
-          }}
-          onDropAtPoint={(clientY, container) => {
-            const nextIndex = resolveDropIndex(clientY, container);
-            if (nextIndex === null) return;
-            onDrop(nextIndex, visibleIds);
-          }}
-        >
-          <DropZone active={draggingGlobal} highlighted={previewIndex === 0} onDrop={() => onDrop(0, visibleIds)} />
-          {visibleHabits.map((habit, index) => (
-            <div className="reorder-item" data-reorder-id={habit.id} key={habit.id}>
-              <HabitListRow
-                habit={habit}
-                editing={editingHabitId === habit.id}
-                completionCount={habitCompletionCount(state, habit.id)}
-                draggable
-                onDragStart={() => onDragStart(habit.id)}
-                onDragEnd={onDragEnd}
-                onEdit={() => startEdit(habit)}
-                onDelete={() => deleteHabit(habit.id)}
-              />
-              <DropZone active={draggingGlobal} highlighted={previewIndex === index + 1} onDrop={() => onDrop(index + 1, visibleIds)} />
-            </div>
-          ))}
-        </ReorderStack>
-      </div>
-    </section>
+    </div>
   );
 }
 

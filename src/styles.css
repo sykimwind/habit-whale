@@ -453,6 +453,27 @@ main {
   margin-bottom: 8px;
 }
 
+.add-picker-create-button,
+.create-habit-button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(95, 148, 150, 0.24);
+  border-radius: 6px;
+  background: #edf7f4;
+  color: var(--brand-deep);
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.add-picker-create-button {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
 .add-picker-list {
   max-height: 280px;
   overflow: auto;
@@ -520,6 +541,12 @@ main {
 .list-grid {
   grid-template-columns: 340px minmax(0, 1fr);
   align-items: start;
+}
+
+.habit-list-screen {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
 }
 
 .calendar-grid {
@@ -634,6 +661,22 @@ label {
   border-color: rgba(79, 129, 122, 0.42);
   background: #6ea39d;
   color: #fff;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(31, 42, 46, 0.28);
+}
+
+.modal-panel {
+  width: min(520px, 100%);
+  max-height: min(720px, calc(100dvh - 36px));
+  overflow: auto;
 }
 
 .small-button {
@@ -1715,6 +1758,16 @@ footer {
     width: 100%;
     margin-top: 8px;
     box-shadow: none;
+  }
+
+  .modal-backdrop {
+    padding: 8px;
+    align-items: start;
+  }
+
+  .modal-panel {
+    width: 100%;
+    max-height: calc(100svh - 16px);
   }
 
   .today-list-panel,
