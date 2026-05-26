@@ -185,6 +185,13 @@ export default function App() {
     };
   }, [dragTarget]);
 
+  useEffect(() => {
+    if (!user) return;
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [activeTab, user]);
+
   const checkHabits = useMemo(() => getHabitsForDate(habitState, checkDate), [habitState, checkDate]);
   const selectedHabits = useMemo(() => getHabitsForDate(habitState, checkDate), [habitState, checkDate]);
   const checkDoneCount = countDone(habitState, checkDate, checkHabits);

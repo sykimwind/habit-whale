@@ -1552,16 +1552,46 @@ footer {
 }
 
 @media (max-width: 700px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body,
+  #root {
+    position: fixed;
+    inset: 0;
+  }
+
   .app-shell {
-    width: min(100% - 16px, 1280px);
-    height: 100svh;
-    max-height: 100svh;
-    padding: max(8px, env(safe-area-inset-top)) 0 max(3px, env(safe-area-inset-bottom));
-    gap: 8px;
+    position: fixed;
+    inset: 0 8px;
+    width: auto;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    padding: max(8px, env(safe-area-inset-top)) 0 max(2px, env(safe-area-inset-bottom));
+    gap: 7px;
   }
 
   main {
-    padding-bottom: 2px;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0 0 1px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: auto;
+  }
+
+  footer {
+    min-height: 15px;
+    padding: 0;
+    font-size: 11px;
+    line-height: 1.15;
   }
 
   .topbar {
