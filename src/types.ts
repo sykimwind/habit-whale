@@ -24,6 +24,7 @@ export type Habit = {
   endDate?: string;
   order: number;
   active: boolean;
+  archivedFromListDate?: string;
 };
 
 export type DateOverride = {

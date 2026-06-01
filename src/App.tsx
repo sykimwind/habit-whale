@@ -31,6 +31,7 @@ import {
   formatKoreanDate,
   fromDateKey,
   getMonthTitle,
+  getWeekdayFromDateKey,
   getWeekdayLabel,
   toDateKey,
 } from "./lib/dates";
@@ -52,7 +53,9 @@ import whaleIcon from "./assets/whale-icon-v4.png";
 type TabId = "today" | "habits" | "calendar";
 type DragTarget = { type: "date" | "global"; habitId: string; dateKey?: string };
 
-const todayKey = toDateKey(new Date());
+function getTodayKey() {
+  return toDateKey(new Date());
+}
 const palette = ["#79b8b6", "#c49b70", "#8fac99", "#d28a96", "#8795b2", "#aeb58d"];
 const habitWeekdayOrder = [1, 2, 3, 4, 5, 6, 0];
 const tabQuotes: Record<TabId, string> = {
@@ -71,10 +74,34 @@ export default function App() {
   const [habitState, setHabitState] = useState<HabitState>(() => createInitialHabitState());
   const [stateReady, setStateReady] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("today");
-  const [checkDate, setCheckDate] = useState(todayKey);
-  const [monthDate, setMonthDate] = useState(new Date());
+  const [todayKey, setTodayKey] = useState(() => getTodayKey());
+  const [checkDate, setCheckDate] = useState(() => getTodayKey());
+  const [monthDate, setMonthDate] = useState(() => fromDateKey(getTodayKey()));
   const [filterCategory, setFilterCategory] = useState("전체");
   const [dragTarget, setDragTarget] = useState<DragTarget | null>(null);
+
+  useEffect(() => {
+    function refreshTodayKey() {
+      const nextTodayKey = getTodayKey();
+      setTodayKey((previousTodayKey) => {
+        if (previousTodayKey !== nextTodayKey) {
+          setCheckDate((currentDateKey) => (currentDateKey === previousTodayKey ? nextTodayKey : currentDateKey));
+          setMonthDate((currentMonthDate) => (toDateKey(currentMonthDate) === previousTodayKey ? fromDateKey(nextTodayKey) : currentMonthDate));
+        }
+        return nextTodayKey;
+      });
+    }
+
+    refreshTodayKey();
+    const timer = window.setInterval(refreshTodayKey, 60 * 1000);
+    window.addEventListener("focus", refreshTodayKey);
+    document.addEventListener("visibilitychange", refreshTodayKey);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshTodayKey);
+      document.removeEventListener("visibilitychange", refreshTodayKey);
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -332,7 +359,7 @@ export default function App() {
         </div>
 
         <div className="topbar-actions">
-          <AppDateControl dateKey={checkDate} onDateChange={changeGlobalDate} />
+          <AppDateControl dateKey={checkDate} todayKey={todayKey} onDateChange={changeGlobalDate} />
           <div className="account-actions">
             <span className="user-pill">{user.name}</span>
             <button className="icon-button" type="button" title="로그아웃" aria-label="로그아웃" onClick={handleLogout}>
@@ -356,6 +383,7 @@ export default function App() {
             percent={checkPercent}
             doneCount={checkDoneCount}
             dateKey={checkDate}
+            todayKey={todayKey}
             dragTarget={dragTarget}
             onAddHabit={addHabitToDate}
             onRemoveHabit={removeHabitFromDate}
@@ -370,10 +398,13 @@ export default function App() {
         {activeTab === "habits" && (
           <HabitListView
             state={habitState}
+            dateKey={checkDate}
+            todayKey={todayKey}
             filterCategory={filterCategory}
             dragTarget={dragTarget}
             onFilterCategory={setFilterCategory}
             onPatch={patchState}
+            onAddHabit={addHabitToDate}
             onDragStart={(habitId) => setDragTarget({ type: "global", habitId })}
             onDragEnd={() => setDragTarget(null)}
             onDrop={reorderGlobalHabits}
@@ -385,6 +416,7 @@ export default function App() {
             state={habitState}
             monthDate={monthDate}
             selectedDate={checkDate}
+            todayKey={todayKey}
             selectedHabits={selectedHabits}
             onMonthChange={(amount) => setMonthDate((current) => addMonths(current, amount))}
             onSelectDate={changeGlobalDate}
@@ -552,7 +584,7 @@ function TabButton({ active, icon, label, onClick }: { active: boolean; icon: Re
   );
 }
 
-function AppDateControl({ dateKey, onDateChange }: { dateKey: string; onDateChange: (dateKey: string) => void }) {
+function AppDateControl({ dateKey, todayKey, onDateChange }: { dateKey: string; todayKey: string; onDateChange: (dateKey: string) => void }) {
   const controlRef = useRef<HTMLDivElement>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [pickerMonth, setPickerMonth] = useState(() => fromDateKey(dateKey));
@@ -636,7 +668,7 @@ function AppDateControl({ dateKey, onDateChange }: { dateKey: string; onDateChan
                 type="button"
                 onClick={() => selectDate(day.key)}
               >
-                {day.date.getDate()}
+                {day.dayNumber}
               </button>
             ))}
           </div>
@@ -652,6 +684,7 @@ function TodayView({
   percent,
   doneCount,
   dateKey,
+  todayKey,
   dragTarget,
   onAddHabit,
   onRemoveHabit,
@@ -666,6 +699,7 @@ function TodayView({
   percent: number;
   doneCount: number;
   dateKey: string;
+  todayKey: string;
   dragTarget: DragTarget | null;
   onAddHabit: (dateKey: string, habitId: string) => void;
   onRemoveHabit: (dateKey: string, habitId: string) => void;
@@ -680,7 +714,7 @@ function TodayView({
   const [createOpen, setCreateOpen] = useState(false);
   const addCategories = ["전체", ...state.categories];
   const addedHabitIds = new Set(habits.map((habit) => habit.id));
-  const filteredAddHabits = state.habits.filter((habit) => addCategory === "전체" || getHabitCategories(habit).includes(addCategory));
+  const filteredAddHabits = state.habits.filter((habit) => isHabitListed(habit) && (addCategory === "전체" || getHabitCategories(habit).includes(addCategory)));
   const draggingHere = dragTarget?.type === "date" && dragTarget.dateKey === dateKey;
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
@@ -795,6 +829,7 @@ function TodayView({
       {createOpen && (
         <HabitFormModal
           state={state}
+          todayKey={todayKey}
           onPatch={onPatch}
           onClose={() => setCreateOpen(false)}
           onSaved={(habitId) => {
@@ -810,19 +845,25 @@ function TodayView({
 
 function HabitListView({
   state,
+  dateKey,
+  todayKey,
   filterCategory,
   dragTarget,
   onFilterCategory,
   onPatch,
+  onAddHabit,
   onDragStart,
   onDragEnd,
   onDrop,
 }: {
   state: HabitState;
+  dateKey: string;
+  todayKey: string;
   filterCategory: string;
   dragTarget: DragTarget | null;
   onFilterCategory: (category: string) => void;
   onPatch: (recipe: (current: HabitState) => HabitState) => void;
+  onAddHabit: (dateKey: string, habitId: string) => void;
   onDragStart: (habitId: string) => void;
   onDragEnd: () => void;
   onDrop: (insertIndex: number, visibleIds: string[]) => void;
@@ -838,7 +879,7 @@ function HabitListView({
   }, [editingHabitId, state.habits]);
 
   const visibleHabits = [...state.habits]
-    .filter((habit) => filterCategory === "전체" || getHabitCategories(habit).includes(filterCategory))
+    .filter((habit) => isHabitListed(habit) && (filterCategory === "전체" || getHabitCategories(habit).includes(filterCategory)))
     .sort((a, b) => a.order - b.order);
   const visibleIds = visibleHabits.map((habit) => habit.id);
   const draggingGlobal = dragTarget?.type === "global";
@@ -863,19 +904,20 @@ function HabitListView({
   function deleteHabit(habitId: string) {
     onPatch((current) => ({
       ...current,
-      habits: current.habits.filter((habit) => habit.id !== habitId),
-      completions: removeHabitFromMap(current.completions, habitId),
+      habits: current.habits.map((habit) => (habit.id === habitId ? { ...habit, archivedFromListDate: todayKey } : habit)),
       dateOverrides: Object.fromEntries(
         Object.entries(current.dateOverrides).map(([dateKey, override]) => [
           dateKey,
-          {
-            add: override.add.filter((id) => id !== habitId),
-            remove: override.remove.filter((id) => id !== habitId),
-          },
+          dateKey > todayKey
+            ? {
+                add: override.add.filter((id) => id !== habitId),
+                remove: override.remove.filter((id) => id !== habitId),
+              }
+            : override,
         ]),
       ),
       dateOrders: Object.fromEntries(
-        Object.entries(current.dateOrders).map(([dateKey, ids]) => [dateKey, ids.filter((id) => id !== habitId)]),
+        Object.entries(current.dateOrders).map(([dateKey, ids]) => [dateKey, dateKey > todayKey ? ids.filter((id) => id !== habitId) : ids]),
       ),
     }));
   }
@@ -945,8 +987,12 @@ function HabitListView({
       {(createOpen || editingHabit) && (
         <HabitFormModal
           state={state}
+          todayKey={todayKey}
           habit={editingHabit}
           onPatch={onPatch}
+          onCreated={(habitId, nextWeekdays) => {
+            if (!nextWeekdays.length) onAddHabit(dateKey, habitId);
+          }}
           onClose={() => {
             setCreateOpen(false);
             setEditingHabitId(null);
@@ -963,15 +1009,19 @@ function HabitListView({
 
 function HabitFormModal({
   state,
+  todayKey,
   habit,
   onPatch,
   onClose,
+  onCreated,
   onSaved,
 }: {
   state: HabitState;
+  todayKey: string;
   habit?: Habit | null;
   onPatch: (recipe: (current: HabitState) => HabitState) => void;
   onClose: () => void;
+  onCreated?: (habitId: string, weekdays: number[]) => void;
   onSaved?: (habitId: string) => void;
 }) {
   const isEditing = Boolean(habit);
@@ -979,7 +1029,7 @@ function HabitFormModal({
   const [selectedCategories, setSelectedCategories] = useState<string[]>(habit ? getHabitCategories(habit) : []);
   const [newCategory, setNewCategory] = useState("");
   const [tone, setTone] = useState<HabitTone>(habit ? getHabitTone(habit) : "good");
-  const [weekdays, setWeekdays] = useState<number[]>(habit?.weekdays ?? allWeekdays);
+  const [weekdays, setWeekdays] = useState<number[]>(habit ? habit.weekdays : []);
   const [whenNote, setWhenNote] = useState(habit?.whenNote ?? "");
   const [whereNote, setWhereNote] = useState(habit?.whereNote ?? "");
 
@@ -1047,6 +1097,7 @@ function HabitFormModal({
       ],
     }));
 
+    onCreated?.(habitId, weekdays);
     onSaved?.(habitId);
     onClose();
   }
@@ -1157,6 +1208,7 @@ function CalendarView({
   state,
   monthDate,
   selectedDate,
+  todayKey,
   selectedHabits,
   onMonthChange,
   onSelectDate,
@@ -1167,6 +1219,7 @@ function CalendarView({
   state: HabitState;
   monthDate: Date;
   selectedDate: string;
+  todayKey: string;
   selectedHabits: Habit[];
   onMonthChange: (amount: number) => void;
   onSelectDate: (dateKey: string) => void;
@@ -1175,7 +1228,7 @@ function CalendarView({
   onToggle: (dateKey: string, habitId: string) => void;
 }) {
   const monthDays = buildMonthDays(monthDate);
-  const availableHabits = state.habits.filter((habit) => !selectedHabits.some((item) => item.id === habit.id));
+  const availableHabits = state.habits.filter((habit) => isHabitListed(habit) && !selectedHabits.some((item) => item.id === habit.id));
 
   return (
     <section className="screen-grid calendar-grid">
@@ -1217,7 +1270,7 @@ function CalendarView({
                 type="button"
                 onClick={() => onSelectDate(day.key)}
               >
-                <span className="day-number">{day.date.getDate()}</span>
+                <span className="day-number">{day.dayNumber}</span>
                 <span className="day-progress">{dayHabits.length ? `${done}/${dayHabits.length}` : "-"}</span>
                 <span className="day-percent">{dayHabits.length ? `${percent}%` : ""}</span>
               </button>
@@ -1683,11 +1736,16 @@ function getHabitsForDate(state: HabitState, dateKey: string) {
     });
 }
 
+function isHabitListed(habit: Habit) {
+  return !habit.archivedFromListDate;
+}
+
 function isHabitScheduledBase(habit: Habit, dateKey: string) {
   if (!habit.active) return false;
+  if (habit.archivedFromListDate && dateKey > habit.archivedFromListDate) return false;
   if (dateKey < habit.startDate) return false;
   if (habit.endDate && dateKey > habit.endDate) return false;
-  return habit.weekdays.includes(fromDateKey(dateKey).getDay());
+  return habit.weekdays.includes(getWeekdayFromDateKey(dateKey));
 }
 
 function normalizeOverride(override?: { add: string[]; remove: string[] }) {
@@ -1807,16 +1865,6 @@ function moveIdToIndex(ids: string[], sourceId: string, insertIndex: number) {
   const adjustedIndex = sourceIndex < insertIndex ? insertIndex - 1 : insertIndex;
   next.splice(Math.max(0, Math.min(adjustedIndex, next.length)), 0, item);
   return next;
-}
-
-function removeHabitFromMap(map: Record<string, Record<string, boolean>>, habitId: string) {
-  return Object.fromEntries(
-    Object.entries(map).map(([dateKey, value]) => {
-      const next = { ...value };
-      delete next[habitId];
-      return [dateKey, next];
-    }),
-  );
 }
 
 function calendarDayColor(percent: number, total: number) {
