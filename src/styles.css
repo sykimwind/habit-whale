@@ -920,9 +920,10 @@ label {
 }
 
 .drop-zone {
-  height: 14px;
+  height: 0;
   display: grid;
   place-items: center;
+  pointer-events: none;
 }
 
 .drop-zone span {
@@ -934,6 +935,7 @@ label {
 
 .reorder-stack.dragging .drop-zone {
   height: 14px;
+  pointer-events: auto;
 }
 
 .drop-zone.active span {

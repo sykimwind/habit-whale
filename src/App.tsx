@@ -1346,7 +1346,17 @@ function HabitRow({
       onPointerCancel={longPressDrag.onPointerCancel}
       onPointerLeave={longPressDrag.onPointerLeave}
     >
-      <button className="check-button" type="button" onClick={onToggle} aria-label="달성 여부">
+      <button
+        className="check-button"
+        type="button"
+        onPointerDown={stopInteractivePointer}
+        onPointerUp={stopInteractivePointer}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle();
+        }}
+        aria-label="달성 여부"
+      >
         <Check size={18} />
       </button>
       <div className="habit-row-text">
@@ -1362,7 +1372,18 @@ function HabitRow({
         <Flame size={14} />
         {completionCount}
       </span>
-      <button className="icon-button danger" type="button" title="제거" aria-label="제거" onClick={onRemove}>
+      <button
+        className="icon-button danger"
+        type="button"
+        title="제거"
+        aria-label="제거"
+        onPointerDown={stopInteractivePointer}
+        onPointerUp={stopInteractivePointer}
+        onClick={(event) => {
+          event.stopPropagation();
+          onRemove();
+        }}
+      >
         <Trash2 size={17} />
       </button>
     </article>
@@ -1412,10 +1433,32 @@ function HabitListRow({
         <Flame size={14} />
         {completionCount}
       </span>
-      <button className="icon-button edit-button" type="button" title="습관 수정" aria-label={`${habit.title} 수정`} onClick={onEdit}>
+      <button
+        className="icon-button edit-button"
+        type="button"
+        title="습관 수정"
+        aria-label={`${habit.title} 수정`}
+        onPointerDown={stopInteractivePointer}
+        onPointerUp={stopInteractivePointer}
+        onClick={(event) => {
+          event.stopPropagation();
+          onEdit();
+        }}
+      >
         <Pencil size={17} />
       </button>
-      <button className="icon-button danger" type="button" title="삭제" aria-label={`${habit.title} 삭제`} onClick={onDelete}>
+      <button
+        className="icon-button danger"
+        type="button"
+        title="삭제"
+        aria-label={`${habit.title} 삭제`}
+        onPointerDown={stopInteractivePointer}
+        onPointerUp={stopInteractivePointer}
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete();
+        }}
+      >
         <Trash2 size={17} />
       </button>
     </article>
@@ -1489,7 +1532,11 @@ function useLongPressDrag(habitId: string, onDragStart?: (habitId: string) => vo
 }
 
 function isInteractiveTarget(target: EventTarget | null) {
-  return target instanceof HTMLElement && Boolean(target.closest("button, input, select, textarea, a"));
+  return target instanceof Element && Boolean(target.closest("button, input, select, textarea, a"));
+}
+
+function stopInteractivePointer(event: PointerEvent<HTMLElement>) {
+  event.stopPropagation();
 }
 
 function ReorderStack({
